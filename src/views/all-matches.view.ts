@@ -1,0 +1,132 @@
+import { defineView, ViewKey, ViewSortDirection, ViewType } from 'twenty-sdk/define';
+
+import {
+  MATCH_AWAY_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER,
+  MATCH_AWAY_FIELD_UNIVERSAL_IDENTIFIER,
+  MATCH_AWAY_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
+  MATCH_DRAW_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER,
+  MATCH_DRAW_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
+  MATCH_END_DATE_FIELD_UNIVERSAL_IDENTIFIER,
+  MATCH_HOME_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER,
+  MATCH_HOME_FIELD_UNIVERSAL_IDENTIFIER,
+  MATCH_HOME_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
+  MATCH_NAME_FIELD_UNIVERSAL_IDENTIFIER,
+  MATCH_OBJECT_UNIVERSAL_IDENTIFIER,
+  MATCH_RESULT_FIELD_UNIVERSAL_IDENTIFIER,
+  MATCH_SCORE_FIELD_UNIVERSAL_IDENTIFIER,
+  MATCH_START_DATE_FIELD_UNIVERSAL_IDENTIFIER,
+  MATCH_TYPE_FIELD_UNIVERSAL_IDENTIFIER,
+} from 'src/objects/match.object';
+
+export const ALL_MATCHES_VIEW_UNIVERSAL_IDENTIFIER = '47e1ca7e-cf68-4a50-ac4b-41895eb23565';
+
+export default defineView({
+  universalIdentifier: ALL_MATCHES_VIEW_UNIVERSAL_IDENTIFIER,
+  name: 'All Matches',
+  objectUniversalIdentifier: MATCH_OBJECT_UNIVERSAL_IDENTIFIER,
+  type: ViewType.TABLE,
+  key: ViewKey.INDEX,
+  icon: 'IconBallFootball',
+  fields: [
+    {
+      universalIdentifier: '3c763c14-621e-4751-bf8b-123d0e3c7f77',
+      fieldMetadataUniversalIdentifier: MATCH_NAME_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 0,
+      isVisible: true,
+      size: 220,
+    },
+    {
+      universalIdentifier: '1b249fbf-e120-4191-889e-e4a31e0818bb',
+      fieldMetadataUniversalIdentifier: MATCH_HOME_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 1,
+      isVisible: true,
+      size: 150,
+    },
+    {
+      universalIdentifier: '6ac06ae2-e1a8-4801-b820-da8a897dfad4',
+      fieldMetadataUniversalIdentifier: MATCH_AWAY_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 2,
+      isVisible: true,
+      size: 150,
+    },
+    {
+      universalIdentifier: 'ad6266f5-9629-49ee-b16a-22d4ac9dd9bd',
+      fieldMetadataUniversalIdentifier: MATCH_START_DATE_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 3,
+      isVisible: true,
+    },
+    {
+      universalIdentifier: '7ae3eec3-996a-4211-b57f-cdc205d4bbbc',
+      fieldMetadataUniversalIdentifier: MATCH_END_DATE_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 4,
+      isVisible: true,
+    },
+    {
+      universalIdentifier: '9613ab31-3d97-4ca5-a010-958c6e06c018',
+      fieldMetadataUniversalIdentifier: MATCH_TYPE_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 4.5,
+      isVisible: true,
+    },
+    {
+      universalIdentifier: '51609f8c-3bec-401b-8f98-5d7bacab9d43',
+      fieldMetadataUniversalIdentifier: MATCH_SCORE_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 5,
+      isVisible: true,
+    },
+    {
+      universalIdentifier: 'd1330aa2-e1ff-4800-b622-2202f23105b2',
+      fieldMetadataUniversalIdentifier: MATCH_RESULT_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 6,
+      isVisible: true,
+    },
+    {
+      universalIdentifier: 'b781beb2-6adc-4b75-96b2-1972d9ea634a',
+      fieldMetadataUniversalIdentifier: MATCH_HOME_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 7,
+      isVisible: true,
+      size: 110,
+    },
+    {
+      universalIdentifier: '15cc8d08-44cb-4c14-918d-115cd890d758',
+      fieldMetadataUniversalIdentifier: MATCH_DRAW_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 8,
+      isVisible: true,
+      size: 110,
+    },
+    {
+      universalIdentifier: 'c143c8a4-a77b-45f2-8e31-083c88499214',
+      fieldMetadataUniversalIdentifier: MATCH_AWAY_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 9,
+      isVisible: true,
+      size: 110,
+    },
+    {
+      universalIdentifier: '48bc0aae-f3e6-408d-a6cd-9c1c3c7c02e4',
+      fieldMetadataUniversalIdentifier: MATCH_HOME_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 10,
+      isVisible: true,
+      size: 140,
+    },
+    {
+      universalIdentifier: 'dd004a48-23a9-40bf-b621-8deb5a6aa5b5',
+      fieldMetadataUniversalIdentifier: MATCH_DRAW_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 11,
+      isVisible: true,
+      size: 140,
+    },
+    {
+      universalIdentifier: 'e0f00a32-34e7-4d41-bbe0-a3c453d5866f',
+      fieldMetadataUniversalIdentifier: MATCH_AWAY_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 12,
+      isVisible: true,
+      size: 140,
+    },
+  ],
+  sorts: [
+    {
+      universalIdentifier: '6e9f1c2a-1d4b-4f3e-9a7c-2b5e8d0f4a16',
+      fieldMetadataUniversalIdentifier: MATCH_START_DATE_FIELD_UNIVERSAL_IDENTIFIER,
+      direction: ViewSortDirection.ASC,
+    },
+  ],
+});
