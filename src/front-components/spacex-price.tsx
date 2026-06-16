@@ -90,9 +90,43 @@ const SpacexPrice = () => {
     } as const;
 
     body = (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0 }}>
+        <div
+          style={{
+            backgroundColor: '#f7f7f8',
+            border: '1px solid #ececef',
+            borderRadius: '10px',
+            padding: '10px 14px',
+            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+            boxSizing: 'border-box',
+          }}
+        >
+        <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+          <tbody>
+          <tr>
+            <td style={labelCell}>SpaceX (SPCX)</td>
+            <td style={valueCell}>
+              {eurFormatter.format(price.priceEur)}{' '}
+              <span style={{ color: MUTED_COLOR, fontWeight: 400 }}>
+                  ${price.priceUsd.toFixed(2)}
+                </span>
+            </td>
+          </tr>
+          <tr>
+            <td style={labelCell}>Entry price</td>
+            <td style={valueCell}>${ENTRY_PRICE_USD.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style={labelCell}>
+              Pot stake ({CONTRIBUTION_PER_PERSON_EUR}€ × {price.participantCount})
+            </td>
+            <td style={valueCell}>{eurFormatter.format(potStakeEur)}</td>
+          </tr>
+          </tbody>
+        </table>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', gap: '12px', flex: 1, minHeight: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minHeight: 0 }}>
             <span style={heroLabel}>POT VALUE</span>
             <span style={{ ...heroValue, color: colorOf(potProfitEur) }}>
               {eurFormatter.format(potValueEur)}
@@ -101,7 +135,7 @@ const SpacexPrice = () => {
               {signedEur(potProfitEur)} ({signedPct(potProfitPct)})
             </span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-end' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-end', flex: 1, minHeight: 0 }}>
             <span style={heroLabel}>{COUNTERPARTY_NAME.toUpperCase()}</span>
             <span style={{ ...heroValue, color: colorOf(counterpartyEur) }}>
               {signedEur(counterpartyEur)}
@@ -111,30 +145,6 @@ const SpacexPrice = () => {
             </span>
           </div>
         </div>
-
-        <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-          <tbody>
-            <tr>
-              <td style={labelCell}>SpaceX (SPCX)</td>
-              <td style={valueCell}>
-                {eurFormatter.format(price.priceEur)}{' '}
-                <span style={{ color: MUTED_COLOR, fontWeight: 400 }}>
-                  ${price.priceUsd.toFixed(2)}
-                </span>
-              </td>
-            </tr>
-            <tr>
-              <td style={labelCell}>Entry price</td>
-              <td style={valueCell}>${ENTRY_PRICE_USD.toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td style={labelCell}>
-                Pot stake ({CONTRIBUTION_PER_PERSON_EUR}€ × {price.participantCount})
-              </td>
-              <td style={valueCell}>{eurFormatter.format(potStakeEur)}</td>
-            </tr>
-          </tbody>
-        </table>
       </div>
     );
   }
