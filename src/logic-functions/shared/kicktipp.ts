@@ -1,3 +1,7 @@
+import {
+  canonicalTeamName,
+  teamPairKey,
+} from 'src/logic-functions/shared/team-aliases';
 import { BetValue } from 'src/objects/bet.object';
 
 export const KICKTIPP_EMAIL = process.env.KICKTIPP_EMAIL ?? '';
@@ -225,4 +229,281 @@ export const scrapeKicktippWcWinners = async (): Promise<KicktippWcWinner[]> => 
   const loginCookie = await loginToKicktipp(KICKTIPP_EMAIL, KICKTIPP_PASSWORD);
   const html = await fetchBonusPage(loginCookie);
   return parseWcWinners(html);
+};
+
+const TIPPABGABE_URL = `${KICKTIPP_BASE_URL}/${KICKTIPP_COMMUNITY}/tippabgabe`;
+
+const BET_VALUE_TO_SCORE: Record<BetValue, { home: number; away: number }> = {
+  [BetValue.HOME_WIN]: { home: 1, away: 0 },
+  [BetValue.NULL_OR_DRAW]: { home: 1, away: 1 },
+  [BetValue.AWAY_WIN]: { home: 0, away: 1 },
+};
+
+export type KicktippTipSubmission = {
+  home: string;
+  away: string;
+  betValue: BetValue;
+};
+
+export type KicktippFormMatch = {
+  home: string;
+  away: string;
+  heimField: string;
+  gastField: string;
+};
+
+export type KicktippTipField = {
+  home: string;
+  away: string;
+  heimField: string;
+  gastField: string;
+  heimTipp: number;
+  gastTipp: number;
+  betValue: BetValue;
+};
+
+export type KicktippSubmissionResult = {
+  submitted: boolean;
+  matched: KicktippTipField[];
+  unmatched: KicktippTipSubmission[];
+  formMatches: Array<{ home: string; away: string }>;
+};
+
+export const buildKicktippTipFields = (
+  formMatches: KicktippFormMatch[],
+  predictions: KicktippTipSubmission[],
+): { matched: KicktippTipField[]; unmatched: KicktippTipSubmission[] } => {
+  const formByPair = new Map(
+    formMatches.map((formMatch) => [
+      teamPairKey(formMatch.home, formMatch.away),
+      formMatch,
+    ]),
+  );
+
+  const matched: KicktippTipField[] = [];
+  const unmatched: KicktippTipSubmission[] = [];
+
+  for (const prediction of predictions) {
+    const formMatch = formByPair.get(
+      teamPairKey(prediction.home, prediction.away),
+    );
+
+    if (!formMatch) {
+      unmatched.push(prediction);
+      continue;
+    }
+
+    const score = BET_VALUE_TO_SCORE[prediction.betValue];
+    const sameOrientation =
+      canonicalTeamName(formMatch.home) === canonicalTeamName(prediction.home);
+
+    matched.push({
+      home: formMatch.home,
+      away: formMatch.away,
+      heimField: formMatch.heimField,
+      gastField: formMatch.gastField,
+      heimTipp: sameOrientation ? score.home : score.away,
+      gastTipp: sameOrientation ? score.away : score.home,
+      betValue: prediction.betValue,
+    });
+  }
+
+  return { matched, unmatched };
+};
+
+const fetchTippabgabePage = async (loginCookie: string): Promise<string> => {
+  const response = await fetch(TIPPABGABE_URL, {
+    headers: { Cookie: loginCookie },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Kicktipp tippabgabe fetch failed: ${response.status}`);
+  }
+
+  return response.text();
+};
+
+const getAttribute = (tag: string, attribute: string): string | undefined =>
+  new RegExp(`${attribute}="([^"]*)"`).exec(tag)?.[1];
+
+export const parseTippabgabeMatches = (html: string): KicktippFormMatch[] => {
+  const rows = [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)];
+  const matches: KicktippFormMatch[] = [];
+
+  for (const row of rows) {
+    const rowHtml = row[1];
+
+    const heimTag = /<input\b[^>]*\bname="([^"]*heimTipp[^"]*)"[^>]*>/i.exec(
+      rowHtml,
+    );
+    const gastTag = /<input\b[^>]*\bname="([^"]*gastTipp[^"]*)"[^>]*>/i.exec(
+      rowHtml,
+    );
+
+    if (!heimTag || !gastTag) {
+      continue;
+    }
+
+    const cells = [...rowHtml.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(
+      (cell) => stripTags(cell[1]),
+    );
+
+    const home = cells[1];
+    const away = cells[2];
+
+    if (!home || !away) {
+      continue;
+    }
+
+    matches.push({
+      home,
+      away,
+      heimField: heimTag[1],
+      gastField: gastTag[1],
+    });
+  }
+
+  return matches;
+};
+
+const extractTippabgabeForm = (html: string): string => {
+  const forms = [...html.matchAll(/<form\b[^>]*>([\s\S]*?)<\/form>/gi)];
+  const tippForm = forms.find((form) => /heimTipp/i.test(form[1]));
+  return tippForm ? tippForm[1] : html;
+};
+
+const collectFormFields = (formHtml: string): URLSearchParams => {
+  const body = new URLSearchParams();
+
+  for (const input of formHtml.matchAll(/<input\b[^>]*>/gi)) {
+    const tag = input[0];
+
+    if (/type="submit"/i.test(tag)) {
+      continue;
+    }
+
+    const name = getAttribute(tag, 'name');
+
+    if (!name) {
+      continue;
+    }
+
+    body.set(name, getAttribute(tag, 'value') ?? '');
+  }
+
+  return body;
+};
+
+const parseSubmitButton = (
+  formHtml: string,
+): { name: string; value: string } | null => {
+  const buttonTag = /<input[^>]+type="submit"[^>]*>/i.exec(formHtml)?.[0];
+
+  if (!buttonTag) {
+    return null;
+  }
+
+  const name = getAttribute(buttonTag, 'name');
+
+  return name ? { name, value: getAttribute(buttonTag, 'value') ?? '' } : null;
+};
+
+export const debugTippabgabe = async () => {
+  if (!KICKTIPP_EMAIL || !KICKTIPP_PASSWORD) {
+    throw new Error('Kicktipp credentials are not configured');
+  }
+
+  const loginCookie = await loginToKicktipp(KICKTIPP_EMAIL, KICKTIPP_PASSWORD);
+  const response = await fetch(TIPPABGABE_URL, {
+    headers: { Cookie: loginCookie },
+  });
+  const html = await response.text();
+
+  const snippet = (needle: string): string | null => {
+    const index = html.toLowerCase().indexOf(needle.toLowerCase());
+    return index < 0
+      ? null
+      : html.slice(Math.max(0, index - 400), index + 600);
+  };
+
+  return {
+    url: TIPPABGABE_URL,
+    status: response.status,
+    finalUrl: response.url,
+    htmlLength: html.length,
+    formCount: (html.match(/<form/gi) ?? []).length,
+    inputCount: (html.match(/<input/gi) ?? []).length,
+    looksLikeLoginPage: /kennung|passwort|loginformular/i.test(html),
+    inputTags: [...html.matchAll(/<input\b[^>]*>/gi)]
+      .map((match) => match[0])
+      .filter((tag) => /tipp|spiel/i.test(tag))
+      .slice(0, 12),
+    snippets: {
+      heimTipp: snippet('heimTipp'),
+      spieltipp: snippet('spieltipp'),
+      tippabgabe: snippet('tippabgabe'),
+    },
+  };
+};
+
+export const submitKicktippTips = async (
+  predictions: KicktippTipSubmission[],
+  dryRun: boolean,
+): Promise<KicktippSubmissionResult> => {
+  if (!KICKTIPP_EMAIL || !KICKTIPP_PASSWORD) {
+    throw new Error('Kicktipp credentials are not configured');
+  }
+
+  const loginCookie = await loginToKicktipp(KICKTIPP_EMAIL, KICKTIPP_PASSWORD);
+  const html = await fetchTippabgabePage(loginCookie);
+  const formHtml = extractTippabgabeForm(html);
+  const formMatches = parseTippabgabeMatches(formHtml);
+  const { matched, unmatched } = buildKicktippTipFields(formMatches, predictions);
+
+  const formMatchSummary = formMatches.map((formMatch) => ({
+    home: formMatch.home,
+    away: formMatch.away,
+  }));
+
+  if (dryRun || matched.length === 0) {
+    return {
+      submitted: false,
+      matched,
+      unmatched,
+      formMatches: formMatchSummary,
+    };
+  }
+
+  const body = collectFormFields(formHtml);
+
+  for (const field of matched) {
+    body.set(field.heimField, String(field.heimTipp));
+    body.set(field.gastField, String(field.gastTipp));
+  }
+
+  const submitButton = parseSubmitButton(formHtml);
+
+  if (submitButton) {
+    body.set(submitButton.name, submitButton.value);
+  }
+
+  const response = await fetch(TIPPABGABE_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Cookie: loginCookie,
+    },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Kicktipp tip submission failed: ${response.status}`);
+  }
+
+  return {
+    submitted: true,
+    matched,
+    unmatched,
+    formMatches: formMatchSummary,
+  };
 };

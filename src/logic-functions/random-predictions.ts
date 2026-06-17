@@ -6,6 +6,11 @@ import {
   PAGE_SIZE,
   round2,
 } from 'src/logic-functions/shared/api';
+import {
+  debugTippabgabe,
+  KicktippSubmissionResult,
+  submitKicktippTips,
+} from 'src/logic-functions/shared/kicktipp';
 import { fetchMatchResultChances } from 'src/logic-functions/shared/odds';
 import {
   OutcomeProbabilities,
@@ -31,6 +36,10 @@ const BET_VALUE_LABELS: Record<BetValue, string> = {
   [BetValue.AWAY_WIN]: '2',
 };
 
+const homeBonus = 1.00
+const drawBonus= 1.20
+const awayBonus= 0.85
+
 const DEFAULT_COUNT = 1;
 
 const parseCount = (raw: string | undefined): number => {
@@ -41,8 +50,16 @@ const parseCount = (raw: string | undefined): number => {
 const toPercentage = (probability: number): number =>
   Math.round(probability * 1000) / 10;
 
+const parseBoolean = (raw: string | undefined): boolean =>
+  (raw ?? '').toLowerCase() === 'true';
+
 const handler = async (event: RoutePayload) => {
+  if (parseBoolean(event.queryStringParameters?.debug)) {
+    return debugTippabgabe();
+  }
+
   const count = parseCount(event.queryStringParameters?.count);
+  const submit = parseBoolean(event.queryStringParameters?.submit);
   const client = createCoreApiClient();
 
   const [chancesByPair, matches] = await Promise.all([
@@ -109,10 +126,10 @@ const handler = async (event: RoutePayload) => {
     }
 
     const homeProbability =
-      chance.teamProbabilities.get(canonicalTeamName(home)) ?? 0;
+      homeBonus*(chance.teamProbabilities.get(canonicalTeamName(home)) ?? 0);
     const awayProbability =
-      chance.teamProbabilities.get(canonicalTeamName(away)) ?? 0;
-    const drawProbability = chance.drawProbability;
+      awayBonus*(chance.teamProbabilities.get(canonicalTeamName(away)) ?? 0);
+    const drawProbability = drawBonus*chance.drawProbability;
 
     const probabilities: OutcomeProbabilities = {
       home: homeProbability,
@@ -143,7 +160,24 @@ const handler = async (event: RoutePayload) => {
     });
   }
 
-  return { count: predictions.length, predictions };
+  let kicktipp: KicktippSubmissionResult | null = null;
+
+  if (predictions.length > 0) {
+    kicktipp = await submitKicktippTips(
+      predictions.map((prediction) => ({
+        home: prediction.home,
+        away: prediction.away,
+        betValue: prediction.prediction,
+      })),
+      !submit,
+    );
+  }
+
+  return {
+    count: predictions.length,
+    predictions,
+    kicktipp: { dryRun: !submit, ...kicktipp },
+  };
 };
 
 export default defineLogicFunction({
