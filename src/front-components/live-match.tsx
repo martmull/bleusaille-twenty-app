@@ -1,6 +1,6 @@
 import { defineFrontComponent } from 'twenty-sdk/define';
 import { RestApiClient } from 'twenty-client-sdk/rest';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 
 export const LIVE_MATCH_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER =
   'f306edd5-83c4-4177-b8a5-e846d92152ac';
@@ -8,6 +8,19 @@ export const LIVE_MATCH_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER =
 const POLL_INTERVAL_MS = 30_000;
 
 type LiveMatchState = 'LIVE' | 'HALF_TIME' | 'UPCOMING';
+
+type OutcomeBets = {
+  ev: number | null;
+  users: string[];
+};
+
+type Outcomes = {
+  home: OutcomeBets;
+  draw: OutcomeBets;
+  away: OutcomeBets;
+};
+
+type OutcomeKey = 'home' | 'draw' | 'away';
 
 type LiveMatchResponse = {
   found: boolean;
@@ -19,6 +32,31 @@ type LiveMatchResponse = {
   startDate?: string;
   stageLabel?: string;
   groupLabel?: string | null;
+  outcomes?: Outcomes;
+};
+
+const OUTCOME_STYLE: Record<
+  OutcomeKey,
+  { betLabel: string; chipBg: string; chipText: string }
+> = {
+  home: { betLabel: '1', chipBg: '#d8f3e1', chipText: '#15803d' },
+  draw: { betLabel: '0', chipBg: '#e9eaed', chipText: '#6b7280' },
+  away: { betLabel: '2', chipBg: '#fbdcdc', chipText: '#dc2626' },
+};
+
+const OUTCOME_ORDER: OutcomeKey[] = ['home', 'draw', 'away'];
+
+const formatEv = (ev: number | null): string => (ev === null ? '—' : ev.toFixed(1));
+
+const longestOutcome = (outcomes: Outcomes): OutcomeKey | null => {
+  let longest: OutcomeKey | null = null;
+  for (const key of OUTCOME_ORDER) {
+    const count = outcomes[key].users.length;
+    if (count > 0 && (longest === null || count > outcomes[longest].users.length)) {
+      longest = key;
+    }
+  }
+  return longest;
 };
 
 const kickoffFormatter = new Intl.DateTimeFormat('fr-FR', {
@@ -32,6 +70,7 @@ const kickoffFormatter = new Intl.DateTimeFormat('fr-FR', {
 const KEYFRAMES = `
 @keyframes live-dot-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.8); } }
 @keyframes live-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes live-pop { 0% { transform: scale(0.6); opacity: 0; } 70% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
 `;
 
 const formatAge = (seconds: number): string =>
@@ -158,6 +197,129 @@ const TeamName = ({ name, align }: { name: string; align: 'right' | 'left' }) =>
   </div>
 );
 
+const BetChip = ({ style }: { style: { betLabel: string; chipBg: string; chipText: string } }) => (
+  <span
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: '28px',
+      padding: '3px 10px',
+      borderRadius: '7px',
+      background: style.chipBg,
+      color: style.chipText,
+      fontSize: '17px',
+      fontWeight: 800,
+    }}
+  >
+    {style.betLabel}
+  </span>
+);
+
+const NameChip = ({ name, index }: { name: string; index: number }) => (
+  <span
+    style={{
+      display: 'inline-block',
+      padding: '2px 8px',
+      borderRadius: '999px',
+      background: 'linear-gradient(180deg, #fff6da 0%, #ffe9a8 100%)',
+      border: '1px solid #f5d77a',
+      fontSize: '11px',
+      fontWeight: 700,
+      color: '#7c5a12',
+      animation: `live-pop 0.35s ${0.05 * index}s both`,
+    }}
+  >
+    {name}
+  </span>
+);
+
+const OutcomeColumn = ({
+  outcome,
+  style,
+  collapsed,
+}: {
+  outcome: OutcomeBets;
+  style: { betLabel: string; chipBg: string; chipText: string };
+  collapsed: boolean;
+}) => (
+  <div
+    style={{
+      flex: '1 1 0',
+      minWidth: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'flex-start',
+      gap: '7px',
+    }}
+  >
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <BetChip style={style} />
+      <span style={{ fontSize: '16px', fontWeight: 800, color: '#1a1a1a', lineHeight: 1 }}>
+        {formatEv(outcome.ev)}
+      </span>
+    </div>
+    <div
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        justifyContent: 'flex-start',
+        gap: '4px',
+        width: '100%',
+        minWidth: 0,
+      }}
+    >
+      {outcome.users.length === 0 ? (
+        <span style={{ fontSize: '11px', color: '#c4c0d6' }}>—</span>
+      ) : collapsed ? (
+        <>
+          {outcome.users.slice(0, 3).map((name, index) => (
+            <NameChip key={name} name={name} index={index} />
+          ))}
+          {outcome.users.length > 3 ? (
+            <span style={{ width: '100%', fontSize: '11px', fontWeight: 700, color: '#9ca3af' }}>
+              ... {outcome.users.length - 3} others
+            </span>
+          ) : null}
+        </>
+      ) : (
+        outcome.users.map((name, index) => <NameChip key={name} name={name} index={index} />)
+      )}
+    </div>
+  </div>
+);
+
+const BetsSection = ({ outcomes }: { outcomes: Outcomes }) => {
+  const collapsedKey = longestOutcome(outcomes);
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        gap: '12px',
+        width: '100%',
+      }}
+    >
+      {OUTCOME_ORDER.map((key, index) => (
+        <Fragment key={key}>
+          {index > 0 ? (
+            <span
+              style={{ flex: '0 0 auto', alignSelf: 'stretch', width: '1px', background: '#eceaf3' }}
+            />
+          ) : null}
+          <OutcomeColumn
+            outcome={outcomes[key]}
+            style={OUTCOME_STYLE[key]}
+            collapsed={key === collapsedKey}
+          />
+        </Fragment>
+      ))}
+    </div>
+  );
+};
+
 const Scoreboard = ({
   data,
   footer,
@@ -178,6 +340,7 @@ const Scoreboard = ({
         width: '100%',
         boxSizing: 'border-box',
         padding: '16px 20px',
+        overflowY: 'auto',
         background: '#ffffff',
         fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       }}
@@ -185,6 +348,7 @@ const Scoreboard = ({
       <style>{KEYFRAMES}</style>
       <div
         style={{
+          flexShrink: 0,
           textAlign: 'center',
           fontSize: '14px',
           fontWeight: 500,
@@ -196,6 +360,7 @@ const Scoreboard = ({
       {context ? (
         <div
           style={{
+            flexShrink: 0,
             textAlign: 'center',
             marginTop: '2px',
             fontSize: '11px',
@@ -208,15 +373,24 @@ const Scoreboard = ({
       ) : null}
       <div
         style={{
-          flex: 1,
+          flexShrink: 0,
+          marginTop: 'auto',
+          marginBottom: 'auto',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '16px',
-          minHeight: 0,
+          flexDirection: 'column',
+          gap: '14px',
         }}
       >
-        <TeamName name={data.home ?? ''} align="right" />
+        <div
+          style={{
+            flex: '0 0 auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '16px',
+          }}
+        >
+          <TeamName name={data.home ?? ''} align="right" />
         <div
           style={{
             display: 'flex',
@@ -243,7 +417,14 @@ const Scoreboard = ({
             </>
           )}
         </div>
-        <TeamName name={data.away ?? ''} align="left" />
+          <TeamName name={data.away ?? ''} align="left" />
+        </div>
+        {data.outcomes ? (
+          <>
+            <div style={{ flex: '0 0 auto', height: '1px', background: '#eceaf3' }} />
+            <BetsSection outcomes={data.outcomes} />
+          </>
+        ) : null}
       </div>
       {footer}
     </div>
