@@ -1,6 +1,7 @@
 import { defineFrontComponent } from 'twenty-sdk/define';
 import { RestApiClient } from 'twenty-client-sdk/rest';
 import { useCallback, useEffect, useState } from 'react';
+import { useColorScheme } from 'twenty-sdk/front-component';
 
 export const SPACEX_PRICE_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER =
   'f99a6140-0f6b-4d1a-b841-a1629febbbbf';
@@ -9,12 +10,39 @@ export const SPACEX_PRICE_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER =
 const CONTRIBUTION_PER_PERSON_EUR = 30;
 const ENTRY_PRICE_USD = 167.05;
 const COUNTERPARTY_NAME = 'Tony';
-const GAIN_COLOR = '#16a34a';
-const LOSS_COLOR = '#dc2626';
-const NEUTRAL_COLOR = '#1a1a1a';
-const MUTED_COLOR = '#888';
 
 const REFRESH_PRICE_INTERVAL_IN_SECONDS = 5
+
+type Theme = {
+  gain: string;
+  loss: string;
+  neutral: string;
+  muted: string;
+  panelBackground: string;
+  panelBorder: string;
+  panelShadow: string;
+};
+
+const getTheme = (scheme: 'light' | 'dark'): Theme =>
+  scheme === 'dark'
+    ? {
+        gain: '#34d399',
+        loss: '#f87171',
+        neutral: '#ececf1',
+        muted: '#9a98a8',
+        panelBackground: '#2a2937',
+        panelBorder: '#34333f',
+        panelShadow: '0 1px 2px rgba(0, 0, 0, 0.45)',
+      }
+    : {
+        gain: '#16a34a',
+        loss: '#dc2626',
+        neutral: '#1a1a1a',
+        muted: '#888',
+        panelBackground: '#f7f7f8',
+        panelBorder: '#ececef',
+        panelShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+      };
 
 type SpacexPriceResponse = {
   symbol: string;
@@ -30,12 +58,13 @@ const eurFormatter = new Intl.NumberFormat('fr-FR', {
   currency: 'EUR',
 });
 
-const colorOf = (value: number) => (value >= 0 ? GAIN_COLOR : LOSS_COLOR);
+const colorOf = (value: number, theme: Theme) => (value >= 0 ? theme.gain : theme.loss);
 const signedEur = (value: number) =>
   `${value >= 0 ? '+' : '−'}${eurFormatter.format(Math.abs(value))}`;
 const signedPct = (value: number) => `${value >= 0 ? '+' : '−'}${Math.abs(value).toFixed(1)}%`;
 
 const SpacexPrice = () => {
+  const theme = getTheme(useColorScheme());
   const [price, setPrice] = useState<SpacexPriceResponse | null>(null);
   const [error, setError] = useState(false);
 
@@ -55,7 +84,7 @@ const SpacexPrice = () => {
   }, [fetchPrice]);
 
   let body: React.ReactNode = (
-    <span style={{ fontSize: '13px', color: NEUTRAL_COLOR }}>{error ? 'Unavailable' : '…'}</span>
+    <span style={{ fontSize: '13px', color: theme.neutral }}>{error ? 'Unavailable' : '…'}</span>
   );
 
   if (price) {
@@ -71,19 +100,19 @@ const SpacexPrice = () => {
       fontSize: '11px',
       fontWeight: 700,
       letterSpacing: '0.5px',
-      color: MUTED_COLOR,
+      color: theme.muted,
     } as const;
     const heroValue = { fontSize: '30px', fontWeight: 700, lineHeight: '1.1' } as const;
     const heroSub = { fontSize: '13px', fontWeight: 600 } as const;
     const labelCell = {
       fontSize: '13px',
-      color: MUTED_COLOR,
+      color: theme.muted,
       padding: '2px 10px 2px 0',
       whiteSpace: 'nowrap',
     } as const;
     const valueCell = {
       fontSize: '13px',
-      color: NEUTRAL_COLOR,
+      color: theme.neutral,
       fontWeight: 600,
       padding: '2px 0',
       textAlign: 'right',
@@ -93,11 +122,11 @@ const SpacexPrice = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, minHeight: 0 }}>
         <div
           style={{
-            backgroundColor: '#f7f7f8',
-            border: '1px solid #ececef',
+            backgroundColor: theme.panelBackground,
+            border: `1px solid ${theme.panelBorder}`,
             borderRadius: '10px',
             padding: '10px 14px',
-            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+            boxShadow: theme.panelShadow,
             boxSizing: 'border-box',
           }}
         >
@@ -107,7 +136,7 @@ const SpacexPrice = () => {
             <td style={labelCell}>SpaceX (SPCX)</td>
             <td style={valueCell}>
               {eurFormatter.format(price.priceEur)}{' '}
-              <span style={{ color: MUTED_COLOR, fontWeight: 400 }}>
+              <span style={{ color: theme.muted, fontWeight: 400 }}>
                   ${price.priceUsd.toFixed(2)}
                 </span>
             </td>
@@ -128,19 +157,19 @@ const SpacexPrice = () => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', gap: '12px', flex: 1, minHeight: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minHeight: 0 }}>
             <span style={heroLabel}>POT VALUE</span>
-            <span style={{ ...heroValue, color: colorOf(potProfitEur) }}>
+            <span style={{ ...heroValue, color: colorOf(potProfitEur, theme) }}>
               {eurFormatter.format(potValueEur)}
             </span>
-            <span style={{ ...heroSub, color: colorOf(potProfitEur) }}>
+            <span style={{ ...heroSub, color: colorOf(potProfitEur, theme) }}>
               {signedEur(potProfitEur)} ({signedPct(potProfitPct)})
             </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-end', flex: 1, minHeight: 0 }}>
             <span style={heroLabel}>{COUNTERPARTY_NAME.toUpperCase()}</span>
-            <span style={{ ...heroValue, color: colorOf(counterpartyEur) }}>
+            <span style={{ ...heroValue, color: colorOf(counterpartyEur, theme) }}>
               {signedEur(counterpartyEur)}
             </span>
-            <span style={{ ...heroSub, color: colorOf(counterpartyEur) }}>
+            <span style={{ ...heroSub, color: colorOf(counterpartyEur, theme) }}>
               {signedPct(counterpartyPct)}
             </span>
           </div>

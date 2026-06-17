@@ -1,6 +1,7 @@
 import { defineFrontComponent } from 'twenty-sdk/define';
 import { RestApiClient } from 'twenty-client-sdk/rest';
 import { useEffect, useState } from 'react';
+import { useColorScheme } from "twenty-sdk/front-component";
 
 export const PODIUM_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER =
   '99057cf8-165e-4cdd-8be7-d217e7b1fd8d';
@@ -11,7 +12,6 @@ type PodiumEntry = {
   names: string[];
   winnings: number | null;
 };
-
 const eurFormatter = new Intl.NumberFormat('fr-FR', {
   style: 'currency',
   currency: 'EUR',
@@ -19,6 +19,31 @@ const eurFormatter = new Intl.NumberFormat('fr-FR', {
 });
 
 type PodiumResponse = { podium: PodiumEntry[] };
+
+type Theme = {
+  pageBackground: string;
+  textPrimary: string;
+  textMuted: string;
+  textFaint: string;
+  positive: string;
+};
+
+const getTheme = (scheme: 'light' | 'dark'): Theme =>
+  scheme === 'dark'
+    ? {
+        pageBackground: 'linear-gradient(180deg, #1b1a26 0%, #131220 100%)',
+        textPrimary: '#ececf1',
+        textMuted: '#9a98a8',
+        textFaint: '#6c6a7d',
+        positive: '#34d399',
+      }
+    : {
+        pageBackground: 'linear-gradient(180deg, #fbfbff 0%, #f1f0fa 100%)',
+        textPrimary: '#1a1a1a',
+        textMuted: '#888',
+        textFaint: '#aaa',
+        positive: '#16a34a',
+      };
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 const BAR_COLORS = ['#FFD24A', '#CBD0D8', '#E29A5B'];
@@ -48,7 +73,7 @@ const KEYFRAMES = `
 @keyframes podium-confetti { 0% { transform: translateY(-14px) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(180px) rotate(380deg); opacity: 0; } }
 `;
 
-const PodiumColumn = ({ entry }: { entry: PodiumEntry }) => {
+const PodiumColumn = ({ entry, theme }: { entry: PodiumEntry; theme: Theme }) => {
   const i = entry.rank - 1;
 
   return (
@@ -85,7 +110,7 @@ const PodiumColumn = ({ entry }: { entry: PodiumEntry }) => {
             style={{
               fontSize: '11px',
               fontWeight: 700,
-              color: '#1a1a1a',
+              color: theme.textPrimary,
               lineHeight: '1.2',
               maxWidth: '100%',
               overflow: 'hidden',
@@ -97,13 +122,13 @@ const PodiumColumn = ({ entry }: { entry: PodiumEntry }) => {
           </div>
         ))}
       </div>
-      <div style={{ fontSize: '11px', fontWeight: 600, color: '#888' }}>{entry.puntos} pts</div>
+      <div style={{ fontSize: '11px', fontWeight: 600, color: theme.textMuted }}>{entry.puntos} pts</div>
       {entry.winnings !== null && entry.winnings > 0 && (
-        <div style={{ fontSize: '12px', fontWeight: 800, color: '#16a34a', marginTop: '1px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 800, color: theme.positive, marginTop: '1px' }}>
           💶 {eurFormatter.format(entry.winnings)}
         </div>
       )}
-      <div style={{ fontSize: '8px', color: '#aaa', fontStyle: 'italic', marginBottom: '3px' }}>
+      <div style={{ fontSize: '8px', color: theme.textFaint, fontStyle: 'italic', marginBottom: '3px' }}>
         {TAGLINES[i]}
       </div>
       <div style={{ height: `${BAR_HEIGHTS[i]}px`, width: '100%', overflow: 'hidden' }}>
@@ -133,6 +158,7 @@ const PodiumColumn = ({ entry }: { entry: PodiumEntry }) => {
 };
 
 const Podium = () => {
+  const theme = getTheme(useColorScheme());
   const [podium, setPodium] = useState<PodiumEntry[] | null>(null);
   const [error, setError] = useState(false);
 
@@ -158,7 +184,7 @@ const Podium = () => {
         overflow: 'hidden',
         boxSizing: 'border-box',
         padding: '10px 12px',
-        background: 'linear-gradient(180deg, #fbfbff 0%, #f1f0fa 100%)',
+        background: theme.pageBackground,
         fontFamily:
           'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       }}
@@ -192,12 +218,12 @@ const Podium = () => {
           zIndex: 1,
         }}
       >
-        {error && <span style={{ fontSize: '12px', color: '#888' }}>Unavailable</span>}
-        {!error && !podium && <span style={{ fontSize: '12px', color: '#888' }}>…</span>}
+        {error && <span style={{ fontSize: '12px', color: theme.textMuted }}>Unavailable</span>}
+        {!error && !podium && <span style={{ fontSize: '12px', color: theme.textMuted }}>…</span>}
         {podium &&
           DISPLAY_ORDER.map((rank) => {
             const entry = byRank(rank);
-            return entry ? <PodiumColumn key={rank} entry={entry} /> : null;
+            return entry ? <PodiumColumn key={rank} entry={entry} theme={theme} /> : null;
           })}
       </div>
     </div>

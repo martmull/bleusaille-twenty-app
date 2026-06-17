@@ -1,6 +1,7 @@
 import { defineFrontComponent } from 'twenty-sdk/define';
 import { RestApiClient } from 'twenty-client-sdk/rest';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { useColorScheme } from 'twenty-sdk/front-component';
 
 export const FINISHED_MATCHES_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER =
   '43884eda-a16f-42f6-a5ec-d7185211ba62';
@@ -20,6 +21,70 @@ type FinishedMatch = {
 };
 
 type FinishedMatchesResponse = { matches: FinishedMatch[] };
+
+type Theme = {
+  pageBackground: string;
+  surface: string;
+  border: string;
+  borderSubtle: string;
+  cardShadow: string;
+  textPrimary: string;
+  heading: string;
+  muted: string;
+  goldChipBackground: string;
+  goldChipBorder: string;
+  goldChipText: string;
+  tooltipBackground: string;
+  tooltipText: string;
+  scoreChipBackground: string;
+  scoreChipText: string;
+  amber: string;
+  dividerLabel: string;
+  dividerLine: string;
+};
+
+const getTheme = (scheme: 'light' | 'dark'): Theme =>
+  scheme === 'dark'
+    ? {
+        pageBackground: 'linear-gradient(180deg, #1b1a26 0%, #131220 100%)',
+        surface: '#21202c',
+        border: '#34333f',
+        borderSubtle: '#2b2a36',
+        cardShadow: '0 2px 6px rgba(0, 0, 0, 0.4)',
+        textPrimary: '#ececf1',
+        heading: '#c9bff0',
+        muted: '#9a98a8',
+        goldChipBackground: 'linear-gradient(180deg, #4a3c18 0%, #5e4b1f 100%)',
+        goldChipBorder: '#7c6526',
+        goldChipText: '#ffd98a',
+        tooltipBackground: '#0d0c15',
+        tooltipText: '#ffffff',
+        scoreChipBackground: '#312b49',
+        scoreChipText: '#cdc2f2',
+        amber: '#fbbf24',
+        dividerLabel: '#7c7a8f',
+        dividerLine: '#2f2e3a',
+      }
+    : {
+        pageBackground: 'linear-gradient(180deg, #fbfbff 0%, #f1f0fa 100%)',
+        surface: '#ffffff',
+        border: '#eceaf3',
+        borderSubtle: '#f0eef6',
+        cardShadow: '0 2px 6px rgba(80, 60, 140, 0.06)',
+        textPrimary: '#1a1a1a',
+        heading: '#3a2f63',
+        muted: '#9ca3af',
+        goldChipBackground: 'linear-gradient(180deg, #fff6da 0%, #ffe9a8 100%)',
+        goldChipBorder: '#f5d77a',
+        goldChipText: '#7c5a12',
+        tooltipBackground: '#2d2748',
+        tooltipText: '#ffffff',
+        scoreChipBackground: '#f4f2fb',
+        scoreChipText: '#3a2f63',
+        amber: '#b45309',
+        dividerLabel: '#a59fc0',
+        dividerLine: '#e4e1ef',
+      };
 
 const dayFormatter = new Intl.DateTimeFormat('en-GB', {
   weekday: 'short',
@@ -43,6 +108,7 @@ const FONT =
   'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
 const WinnerChip = ({ winner, index }: { winner: Winner; index: number }) => {
+  const theme = getTheme(useColorScheme());
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -54,11 +120,11 @@ const WinnerChip = ({ winner, index }: { winner: Winner; index: number }) => {
         display: 'inline-block',
         padding: '2px 8px',
         borderRadius: '999px',
-        background: 'linear-gradient(180deg, #fff6da 0%, #ffe9a8 100%)',
-        border: '1px solid #f5d77a',
+        background: theme.goldChipBackground,
+        border: `1px solid ${theme.goldChipBorder}`,
         fontSize: '11px',
         fontWeight: 700,
-        color: '#7c5a12',
+        color: theme.goldChipText,
         cursor: 'default',
         animation: `fm-pop 0.35s ${0.05 * index}s both`,
       }}
@@ -73,8 +139,8 @@ const WinnerChip = ({ winner, index }: { winner: Winner; index: number }) => {
             transform: 'translateX(-50%)',
             padding: '4px 8px',
             borderRadius: '6px',
-            background: '#2d2748',
-            color: '#ffffff',
+            background: theme.tooltipBackground,
+            color: theme.tooltipText,
             fontSize: '10px',
             fontWeight: 700,
             whiteSpace: 'nowrap',
@@ -91,9 +157,11 @@ const WinnerChip = ({ winner, index }: { winner: Winner; index: number }) => {
 };
 
 const Winners = ({ match }: { match: FinishedMatch }) => {
+  const theme = getTheme(useColorScheme());
+
   if (match.winners.length === 0) {
     return (
-      <div style={{ fontSize: '11px', fontStyle: 'italic', color: '#9ca3af' }}>
+      <div style={{ fontSize: '11px', fontStyle: 'italic', color: theme.muted }}>
         💩 nobody nailed it
       </div>
     );
@@ -108,7 +176,10 @@ const Winners = ({ match }: { match: FinishedMatch }) => {
   );
 };
 
-const MatchCard = ({ match, index }: { match: FinishedMatch; index: number }) => (
+const MatchCard = ({ match, index }: { match: FinishedMatch; index: number }) => {
+  const theme = getTheme(useColorScheme());
+
+  return (
   <div
     style={{
       display: 'flex',
@@ -116,9 +187,9 @@ const MatchCard = ({ match, index }: { match: FinishedMatch; index: number }) =>
       gap: '10px',
       padding: '9px 11px',
       borderRadius: '12px',
-      background: '#ffffff',
-      border: '1px solid #eceaf3',
-      boxShadow: '0 2px 6px rgba(80, 60, 140, 0.06)',
+      background: theme.surface,
+      border: `1px solid ${theme.border}`,
+      boxShadow: theme.cardShadow,
       animation: `fm-rise 0.4s ${Math.min(index, 8) * 0.05}s both`,
     }}
   >
@@ -140,7 +211,7 @@ const MatchCard = ({ match, index }: { match: FinishedMatch; index: number }) =>
           minWidth: 0,
           fontSize: '12px',
           fontWeight: 700,
-          color: '#1a1a1a',
+          color: theme.textPrimary,
         }}
       >
         <span
@@ -169,11 +240,11 @@ const MatchCard = ({ match, index }: { match: FinishedMatch; index: number }) =>
           style={{
             padding: '2px 9px',
             borderRadius: '7px',
-            background: '#f4f2fb',
+            background: theme.scoreChipBackground,
             fontSize: '15px',
             fontWeight: 800,
             letterSpacing: '0.5px',
-            color: '#3a2f63',
+            color: theme.scoreChipText,
           }}
         >
           {match.score || '–'}
@@ -186,7 +257,7 @@ const MatchCard = ({ match, index }: { match: FinishedMatch; index: number }) =>
               gap: '3px',
               fontSize: '12px',
               fontWeight: 800,
-              color: '#b45309',
+              color: theme.amber,
               whiteSpace: 'nowrap',
             }}
           >
@@ -203,15 +274,19 @@ const MatchCard = ({ match, index }: { match: FinishedMatch; index: number }) =>
         display: 'flex',
         alignItems: 'center',
         paddingLeft: '10px',
-        borderLeft: '1px solid #f0eef6',
+        borderLeft: `1px solid ${theme.borderSubtle}`,
       }}
     >
       <Winners match={match} />
     </div>
   </div>
-);
+  );
+};
 
-const DateDivider = ({ label }: { label: string }) => (
+const DateDivider = ({ label }: { label: string }) => {
+  const theme = getTheme(useColorScheme());
+
+  return (
   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '2px 2px 0' }}>
     <span
       style={{
@@ -219,17 +294,21 @@ const DateDivider = ({ label }: { label: string }) => (
         fontWeight: 800,
         letterSpacing: '0.5px',
         textTransform: 'uppercase',
-        color: '#a59fc0',
+        color: theme.dividerLabel,
         whiteSpace: 'nowrap',
       }}
     >
       {label}
     </span>
-    <span style={{ flex: 1, height: '1px', background: '#e4e1ef' }} />
+    <span style={{ flex: 1, height: '1px', background: theme.dividerLine }} />
   </div>
-);
+  );
+};
 
-const Shell = ({ children }: { children: React.ReactNode }) => (
+const Shell = ({ children }: { children: React.ReactNode }) => {
+  const theme = getTheme(useColorScheme());
+
+  return (
   <div
     style={{
       height: '100%',
@@ -237,14 +316,15 @@ const Shell = ({ children }: { children: React.ReactNode }) => (
       boxSizing: 'border-box',
       overflowY: 'auto',
       padding: '12px',
-      background: 'linear-gradient(180deg, #fbfbff 0%, #f1f0fa 100%)',
+      background: theme.pageBackground,
       fontFamily: FONT,
     }}
   >
     <style>{KEYFRAMES}</style>
     {children}
   </div>
-);
+  );
+};
 
 const RefreshButton = ({
   onRefresh,
@@ -252,7 +332,10 @@ const RefreshButton = ({
 }: {
   onRefresh: () => void;
   isRefreshing: boolean;
-}) => (
+}) => {
+  const theme = getTheme(useColorScheme());
+
+  return (
   <button
     type="button"
     onClick={onRefresh}
@@ -268,7 +351,7 @@ const RefreshButton = ({
       border: 'none',
       borderRadius: '6px',
       background: 'transparent',
-      color: '#9ca3af',
+      color: theme.muted,
       cursor: isRefreshing ? 'default' : 'pointer',
       fontSize: '14px',
       lineHeight: 1,
@@ -283,9 +366,11 @@ const RefreshButton = ({
       ↻
     </span>
   </button>
-);
+  );
+};
 
 const FinishedMatches = () => {
+  const theme = getTheme(useColorScheme());
   const [matches, setMatches] = useState<FinishedMatch[] | null>(null);
   const [error, setError] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -321,18 +406,18 @@ const FinishedMatches = () => {
           marginBottom: '10px',
         }}
       >
-        <span style={{ fontSize: '14px', fontWeight: 800, color: '#3a2f63' }}>
+        <span style={{ fontSize: '14px', fontWeight: 800, color: theme.heading }}>
           🏁 Hall of Winners
         </span>
         <RefreshButton onRefresh={load} isRefreshing={isRefreshing} />
       </div>
 
       {error && !matches ? (
-        <div style={{ fontSize: '13px', color: '#9ca3af' }}>Results unavailable</div>
+        <div style={{ fontSize: '13px', color: theme.muted }}>Results unavailable</div>
       ) : !matches ? (
-        <div style={{ fontSize: '13px', color: '#9ca3af' }}>…</div>
+        <div style={{ fontSize: '13px', color: theme.muted }}>…</div>
       ) : matches.length === 0 ? (
-        <div style={{ fontSize: '13px', color: '#9ca3af' }}>
+        <div style={{ fontSize: '13px', color: theme.muted }}>
           No finished match yet ⏳
         </div>
       ) : (
