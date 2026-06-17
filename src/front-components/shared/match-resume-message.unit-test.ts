@@ -29,11 +29,12 @@ describe('buildMatchResumeMessage', () => {
     expect(message).toBe(
       [
         '⚽ Terminé — France 2-1 Germany',
-        '🏆 Gagnants (+30 puntos chacun) : Alice',
+        '🏆 Gagnants (+30 puntos chacun) :',
+        ' Alice',
         '',
         '📊 Classement',
-        '1. Alice — 35  (+1)',
-        '2. Bob — 20  (-1)',
+        '1. Alice — 35  (*+1*)',
+        '2. Bob   — 20  (*-1*)',
       ].join('\n'),
     );
   });
@@ -65,7 +66,7 @@ describe('buildMatchResumeMessage', () => {
       evolutions: flat,
     });
 
-    expect(message).toContain('1. Alice — 10  (=)');
-    expect(message).toContain('2. Bob — 10  (=)');
+    expect(message).toContain('1. Alice — 10  (*=*)');
+    expect(message).toContain('2. Bob   — 10  (*=*)');
   });
 });

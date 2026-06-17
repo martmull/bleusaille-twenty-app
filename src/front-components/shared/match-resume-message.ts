@@ -74,25 +74,38 @@ export const buildMatchResumeMessage = (input: MatchResumeInput): string => {
   const current = rankAsOf(input.evolutions, cutoff, true);
   const previous = rankAsOf(input.evolutions, cutoff, false);
 
-  const header = `⚽ Terminé — ${input.match.home} ${input.match.score} ${input.match.away}\n`;
+  const header = `⚽ Terminé — ${input.match.home} ${input.match.score} ${input.match.away}`;
 
   const winnersLine =
     input.winners.length === 0
       ? '🏆 Aucun gagnant'
       : `🏆 Gagnants (+${Math.max(
           ...input.winners.map((winner) => winner.puntos),
-        )} puntos chacun) : ${input.winners
+        )} puntos chacun) :\n ${input.winners
           .map((winner) => winner.firstName)
           .sort((a, b) => a.localeCompare(b))
           .join(', ')}`;
 
-  const board = [...current.values()]
+  const rows = [...current.values()]
     .sort((a, b) => a.rank - b.rank)
     .map((person) => {
       const previousRank = previous.get(person.personId)?.rank ?? person.rank;
-      const delta = previousRank - person.rank;
-      return `${person.rank}. ${person.firstName} — ${person.total}  (${formatIndicator(delta)})`;
+      return {
+        rank: person.rank,
+        firstName: person.firstName,
+        total: person.total,
+        indicator: formatIndicator(previousRank - person.rank),
+      };
     });
+
+  const nameWidth = Math.max(...rows.map((row) => row.firstName.length));
+  const pointsWidth = Math.max(...rows.map((row) => `${row.total}`.length));
+
+  const board = rows.map((row) => {
+    const name = row.firstName.padEnd(nameWidth);
+    const total = `${row.total}`.padStart(pointsWidth);
+    return `${row.rank}. ${name} — ${total}  (*${row.indicator}*)`;
+  });
 
   return [header, winnersLine, '', '📊 Classement', ...board].join('\n');
 };
