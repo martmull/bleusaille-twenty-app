@@ -81,6 +81,8 @@ type LiveMatchResponse = {
 const IN_PROGRESS_STATUSES = new Set(['IN_PLAY', 'PAUSED']);
 const UPCOMING_STATUSES = new Set(['TIMED', 'SCHEDULED']);
 
+const MAX_MATCH_DURATION_MS = 3 * 60 * 60 * 1000;
+
 const STAGE_LABELS: Record<string, string> = {
   GROUP_STAGE: 'Phase de groupes',
   LAST_32: '16es de finale',
@@ -238,7 +240,7 @@ const fetchOutcomes = async (match: FootballDataMatch): Promise<Outcomes | undef
         return { name, newPuntos, newRank, rankDelta: currentRank - newRank };
       })
       .filter((user): user is OutcomeUser => user !== null)
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => b.newPuntos - a.newPuntos || a.name.localeCompare(b.name));
 
     return {
       ev,
@@ -262,16 +264,19 @@ const handler = async (): Promise<LiveMatchResponse> => {
 
   const playable = matches.filter((match) => match.homeTeam.name && match.awayTeam.name);
 
-  const inProgress = playable
-    .filter((match) => IN_PROGRESS_STATUSES.has(match.status))
-    .sort(byKickoffAsc)[0];
-
   const now = Date.now();
+  const kickoffMs = (match: FootballDataMatch): number => new Date(match.utcDate).getTime();
+
+  const isLive = (match: FootballDataMatch): boolean =>
+    IN_PROGRESS_STATUSES.has(match.status) ||
+    (UPCOMING_STATUSES.has(match.status) &&
+      kickoffMs(match) <= now &&
+      now - kickoffMs(match) <= MAX_MATCH_DURATION_MS);
+
+  const inProgress = playable.filter(isLive).sort(byKickoffAsc)[0];
+
   const upcoming = playable
-    .filter(
-      (match) =>
-        UPCOMING_STATUSES.has(match.status) && new Date(match.utcDate).getTime() > now,
-    )
+    .filter((match) => UPCOMING_STATUSES.has(match.status) && kickoffMs(match) > now)
     .sort(byKickoffAsc)[0];
 
   const selected = inProgress ?? upcoming;
@@ -286,7 +291,7 @@ const handler = async (): Promise<LiveMatchResponse> => {
       : 'LIVE'
     : 'UPCOMING';
 
-  const outcomes = inProgress ? await fetchOutcomes(inProgress) : undefined;
+  const outcomes = await fetchOutcomes(selected);
 
   return {
     found: true,

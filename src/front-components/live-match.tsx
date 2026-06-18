@@ -6,7 +6,8 @@ import { useColorScheme } from 'twenty-sdk/front-component';
 export const LIVE_MATCH_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER =
   'f306edd5-83c4-4177-b8a5-e846d92152ac';
 
-const POLL_INTERVAL_MS = 30_000;
+const LIVE_POLL_INTERVAL_MS = 30_000;
+const IDLE_POLL_INTERVAL_MS = 120_000;
 
 type LiveMatchState = 'LIVE' | 'HALF_TIME' | 'UPCOMING';
 
@@ -73,7 +74,7 @@ const getTheme = (scheme: 'light' | 'dark'): Theme =>
         textPrimary: '#ececf1',
         muted: '#9a98a8',
         subtle: '#8a8896',
-        faint: '#5a5868',
+        faint: '#6e6c7e',
         positive: '#4ade80',
         positiveDot: '#34d399',
         negative: '#f87171',
@@ -93,7 +94,7 @@ const getTheme = (scheme: 'light' | 'dark'): Theme =>
         textPrimary: '#1a1a1a',
         muted: '#9ca3af',
         subtle: '#6b7280',
-        faint: '#c4c0d6',
+        faint: '#7e7a96',
         positive: '#15803d',
         positiveDot: '#16a34a',
         negative: '#dc2626',
@@ -326,7 +327,7 @@ const UserRow = ({ user, index }: { user: OutcomeUser; index: number }) => {
           width: '100%',
           maxWidth: 0,
           padding: '2px 6px 2px 0',
-          fontSize: '12px',
+          fontSize: '14px',
           fontWeight: 700,
           color: theme.textPrimary,
           overflow: 'hidden',
@@ -339,7 +340,7 @@ const UserRow = ({ user, index }: { user: OutcomeUser; index: number }) => {
       <td
         style={{
           padding: '2px 6px 2px 0',
-          fontSize: '11px',
+          fontSize: '13px',
           fontWeight: 800,
           color: theme.goldChipText,
           textAlign: 'right',
@@ -351,7 +352,7 @@ const UserRow = ({ user, index }: { user: OutcomeUser; index: number }) => {
       <td
         style={{
           padding: '2px 5px 2px 0',
-          fontSize: '11px',
+          fontSize: '13px',
           color: theme.muted,
           textAlign: 'right',
           whiteSpace: 'nowrap',
@@ -362,7 +363,7 @@ const UserRow = ({ user, index }: { user: OutcomeUser; index: number }) => {
       <td
         style={{
           padding: '2px 0',
-          fontSize: '11px',
+          fontSize: '13px',
           fontWeight: 800,
           color: deltaColor,
           textAlign: 'right',
@@ -394,11 +395,11 @@ const OutcomeColumn = ({ outcome, style }: { outcome: OutcomeBets; style: ChipSt
         className="lm-outcome-sep"
         style={{ flex: '0 0 auto', alignSelf: 'stretch', width: '1px', background: theme.border }}
       />
-      <span style={{ fontSize: '16px', fontWeight: 800, color: theme.textPrimary, lineHeight: 1 }}>
+      <span style={{ fontSize: '18px', fontWeight: 800, color: theme.textPrimary, lineHeight: 1 }}>
         {formatEv(outcome.ev)}
       </span>
       {outcome.probability !== null ? (
-        <span style={{ fontSize: '12px', fontWeight: 700, color: theme.subtle, lineHeight: 1 }}>
+        <span style={{ fontSize: '14px', fontWeight: 700, color: theme.subtle, lineHeight: 1 }}>
           {formatProbability(outcome.probability)}
           <span style={{ fontWeight: 500, color: theme.faint }}>
             {formatQuoteBreakeven(outcome.quote, outcome.breakeven)}
@@ -414,7 +415,7 @@ const OutcomeColumn = ({ outcome, style }: { outcome: OutcomeBets; style: ChipSt
             borderRadius: '999px',
             background: theme.goldChipBackground,
             border: `1px solid ${theme.goldChipBorder}`,
-            fontSize: '11px',
+            fontSize: '13px',
             fontWeight: 800,
             color: theme.goldChipText,
           }}
@@ -424,7 +425,7 @@ const OutcomeColumn = ({ outcome, style }: { outcome: OutcomeBets; style: ChipSt
       ) : null}
     </div>
     {outcome.users.length === 0 ? (
-      <span style={{ fontSize: '11px', color: theme.faint }}>—</span>
+      <span style={{ fontSize: '13px', color: theme.faint }}>—</span>
     ) : (
       <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
         <tbody>
@@ -620,11 +621,17 @@ const LiveMatch = () => {
       .finally(() => setIsRefreshing(false));
   }, []);
 
+  const isRunning = data?.state === 'LIVE' || data?.state === 'HALF_TIME';
+
   useEffect(() => {
     load();
-    const interval = setInterval(load, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
   }, [load]);
+
+  useEffect(() => {
+    const intervalMs = isRunning ? LIVE_POLL_INTERVAL_MS : IDLE_POLL_INTERVAL_MS;
+    const interval = setInterval(load, intervalMs);
+    return () => clearInterval(interval);
+  }, [isRunning, load]);
 
   useEffect(() => {
     const ticker = setInterval(() => setNow(Date.now()), 1000);
