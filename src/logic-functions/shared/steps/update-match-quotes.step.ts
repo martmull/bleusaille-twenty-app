@@ -16,6 +16,7 @@ type MatchRecord = {
   homeQuote: number | null;
   drawQuote: number | null;
   awayQuote: number | null;
+  result: string | null;
 };
 
 export type UpdateMatchQuotesResult = {
@@ -42,6 +43,7 @@ export const updateMatchQuotes = async (
               homeQuote: true,
               drawQuote: true,
               awayQuote: true,
+              result: true,
             },
           },
           pageInfo: { hasNextPage: true, endCursor: true },
@@ -58,6 +60,10 @@ export const updateMatchQuotes = async (
   let withQuotes = 0;
 
   for (const match of matches) {
+    if (match.result) {
+      continue;
+    }
+
     const chance =
       match.home && match.away
         ? chancesByPair.get(teamPairKey(match.home, match.away))

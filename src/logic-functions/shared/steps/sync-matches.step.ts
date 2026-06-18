@@ -89,7 +89,7 @@ export const syncMatches = async (
   apiMatches?: FootballDataMatch[],
 ): Promise<SyncMatchesResult> => {
   const [resolvedMatches, existingMatches] = await Promise.all([
-    apiMatches ?? fetchWorldCupMatches<FootballDataMatch>(),
+    apiMatches ?? await fetchWorldCupMatches<FootballDataMatch>(),
     fetchAllPages<MatchRecord>(async (after) => {
       const { matches } = await client.query({
         matches: {

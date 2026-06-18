@@ -15,6 +15,7 @@ type BetRecord = {
     home: string | null;
     away: string | null;
     stage: string | null;
+    result: string | null;
   } | null;
 };
 
@@ -55,7 +56,7 @@ export const updateBetEv = async (
               id: true,
               betValue: true,
               ev: true,
-              match: { id: true, home: true, away: true, stage: true },
+              match: { id: true, home: true, away: true, stage: true, result: true },
             },
           },
           pageInfo: { hasNextPage: true, endCursor: true },
@@ -82,6 +83,11 @@ export const updateBetEv = async (
 
   for (const bet of bets) {
     const match = bet.match;
+
+    if (match?.result) {
+      continue;
+    }
+
     const target =
       match?.id && match.home && match.away
         ? (() => {
