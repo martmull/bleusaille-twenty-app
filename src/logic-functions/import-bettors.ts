@@ -12,4 +12,9 @@ export default defineLogicFunction({
     'Imports the kicktipp players as People records (deduplicated by name). Intended to be run manually.',
   timeoutSeconds: 300,
   handler,
+  httpRouteTriggerSettings: {
+    httpMethod: 'GET',
+    isAuthRequired: false,
+    path: '/import-bettors',
+  },
 });
