@@ -1,8 +1,7 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
 import { createCoreApiClient } from 'src/logic-functions/shared/api';
-import { scrapeKicktippBets } from 'src/logic-functions/shared/kicktipp';
-import { fetchMatchResultChances } from 'src/logic-functions/shared/odds';
+import { fetchExternalData } from 'src/logic-functions/shared/external-data';
 import { computePuntosEvolution } from 'src/logic-functions/shared/steps/compute-puntos-evolution.step';
 import { computeBetsPuntos } from 'src/logic-functions/shared/steps/compute-puntos.step';
 import { importBettors } from 'src/logic-functions/shared/steps/import-bettors.step';
@@ -24,20 +23,20 @@ const handler = async () => {
 
   console.log('[synchronize] starting pipeline');
 
-  console.log('[synchronize] scraping kicktipp bets');
-  const kicktippBets = await scrapeKicktippBets();
-  console.log('[synchronize] scraped kicktipp bets', kicktippBets.length);
+  console.log('[synchronize] fetching external data in parallel');
+  const externalData = await fetchExternalData();
+  console.log('[synchronize] external data fetched');
 
   console.log('[synchronize] step 1/15: importing bettors');
-  const importBettorsResult = await importBettors(client, kicktippBets);
+  const importBettorsResult = await importBettors(client, externalData.kicktippBets);
   console.log('[synchronize] import bettors done', importBettorsResult);
 
   console.log('[synchronize] step 2/15: syncing matches');
-  const syncMatchesResult = await syncMatches(client);
+  const syncMatchesResult = await syncMatches(client, externalData.worldCupMatches);
   console.log('[synchronize] sync matches done', syncMatchesResult);
 
   console.log('[synchronize] step 3/15: syncing bets');
-  const syncBetsResult = await syncBets(client, kicktippBets);
+  const syncBetsResult = await syncBets(client, externalData.kicktippBets);
   console.log('[synchronize] sync bets done', syncBetsResult);
 
   console.log('[synchronize] step 4/15: settling bets');
@@ -57,11 +56,14 @@ const handler = async () => {
   console.log('[synchronize] update people puntos done', updatePeoplePuntosResult);
 
   console.log('[synchronize] step 8/15: updating WC winner bets');
-  const updateWcWinnerBetsResult = await updateWcWinnerBets(client);
+  const updateWcWinnerBetsResult = await updateWcWinnerBets(client, externalData.kicktippWcWinners);
   console.log('[synchronize] update WC winner bets done', updateWcWinnerBetsResult);
 
   console.log('[synchronize] step 9/15: updating victory chance');
-  const updateVictoryChanceResult = await updateVictoryChance(client);
+  const updateVictoryChanceResult = await updateVictoryChance(
+    client,
+    externalData.worldCupWinnerChances,
+  );
   console.log('[synchronize] update victory chance done', updateVictoryChanceResult);
 
   console.log('[synchronize] step 10/15: updating winner bet puntos ev');
@@ -76,10 +78,8 @@ const handler = async () => {
   const updateWinningsResult = await updateWinnings(client);
   console.log('[synchronize] update winnings done', updateWinningsResult);
 
-  const matchResultChances = await fetchMatchResultChances();
-
   console.log('[synchronize] step 13/15: updating match quotes');
-  const updateMatchQuotesResult = await updateMatchQuotes(client, matchResultChances);
+  const updateMatchQuotesResult = await updateMatchQuotes(client, externalData.matchResultChances);
   console.log('[synchronize] update match quotes done', updateMatchQuotesResult);
 
   console.log('[synchronize] step 14/15: updating match breakeven');
@@ -87,7 +87,7 @@ const handler = async () => {
   console.log('[synchronize] update match breakeven done', updateMatchBreakevenResult);
 
   console.log('[synchronize] step 15/15: updating bet EV');
-  const updateBetEvResult = await updateBetEv(client, matchResultChances);
+  const updateBetEvResult = await updateBetEv(client, externalData.matchResultChances);
   console.log('[synchronize] update bet EV done', updateBetEvResult);
 
   console.log('[synchronize] pipeline complete');

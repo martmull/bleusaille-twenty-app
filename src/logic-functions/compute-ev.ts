@@ -1,7 +1,7 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
 import { createCoreApiClient } from 'src/logic-functions/shared/api';
-import { fetchMatchResultChances } from 'src/logic-functions/shared/odds';
+import { fetchExternalData } from 'src/logic-functions/shared/external-data';
 import { updateBetEv } from 'src/logic-functions/shared/steps/update-bet-ev.step';
 import { updateMatchQuotes } from 'src/logic-functions/shared/steps/update-match-quotes.step';
 
@@ -9,14 +9,21 @@ const handler = async () => {
   const client = createCoreApiClient();
 
   console.log('[compute-ev] fetching fresh quotes');
-  const chances = await fetchMatchResultChances();
+  const { matchResultChances } = await fetchExternalData({
+    ignore: [
+      'kicktippBets',
+      'worldCupMatches',
+      'kicktippWcWinners',
+      'worldCupWinnerChances',
+    ],
+  });
 
   console.log('[compute-ev] storing match quotes');
-  const matchQuotes = await updateMatchQuotes(client, chances);
+  const matchQuotes = await updateMatchQuotes(client, matchResultChances);
   console.log('[compute-ev] match quotes done', matchQuotes);
 
   console.log('[compute-ev] computing bet EV');
-  const betEv = await updateBetEv(client, chances);
+  const betEv = await updateBetEv(client, matchResultChances);
   console.log('[compute-ev] done', betEv);
 
   return { matchQuotes, betEv };

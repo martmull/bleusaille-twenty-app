@@ -9,7 +9,7 @@ import {
 import { fetchWorldCupMatches } from 'src/logic-functions/shared/football-data';
 import { MatchResult, MatchType } from 'src/objects/match.object';
 
-type FootballDataMatch = {
+export type FootballDataMatch = {
   utcDate: string;
   status: string;
   stage: string;
@@ -84,9 +84,12 @@ const toEndDate = (match: FootballDataMatch): string => {
   return new Date(new Date(match.utcDate).getTime() + durationMinutes * 60_000).toISOString();
 };
 
-export const syncMatches = async (client: CoreApiClient): Promise<SyncMatchesResult> => {
-  const [apiMatches, existingMatches] = await Promise.all([
-    fetchWorldCupMatches<FootballDataMatch>(),
+export const syncMatches = async (
+  client: CoreApiClient,
+  apiMatches?: FootballDataMatch[],
+): Promise<SyncMatchesResult> => {
+  const [resolvedMatches, existingMatches] = await Promise.all([
+    apiMatches ?? fetchWorldCupMatches<FootballDataMatch>(),
     fetchAllPages<MatchRecord>(async (after) => {
       const { matches } = await client.query({
         matches: {
@@ -126,7 +129,7 @@ export const syncMatches = async (client: CoreApiClient): Promise<SyncMatchesRes
     };
   }> = [];
 
-  for (const apiMatch of apiMatches) {
+  for (const apiMatch of resolvedMatches) {
     const home = apiMatch.homeTeam.name;
     const away = apiMatch.awayTeam.name;
 
@@ -179,6 +182,6 @@ export const syncMatches = async (client: CoreApiClient): Promise<SyncMatchesRes
   return {
     created: toCreate.length,
     updated,
-    total: apiMatches.length,
+    total: resolvedMatches.length,
   };
 };
