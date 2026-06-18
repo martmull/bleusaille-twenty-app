@@ -25,14 +25,19 @@ type BetRecord = {
   match: {
     home: string | null;
     away: string | null;
-    stage: string | null;
-    homeQuote: number | null;
-    drawQuote: number | null;
-    awayQuote: number | null;
-    homeBreakeven: number | null;
-    drawBreakeven: number | null;
-    awayBreakeven: number | null;
   } | null;
+};
+
+type MatchRecord = {
+  home: string | null;
+  away: string | null;
+  stage: string | null;
+  homeQuote: number | null;
+  drawQuote: number | null;
+  awayQuote: number | null;
+  homeBreakeven: number | null;
+  drawBreakeven: number | null;
+  awayBreakeven: number | null;
 };
 
 type PersonRecord = {
@@ -121,7 +126,29 @@ const fetchOutcomes = async (match: FootballDataMatch): Promise<Outcomes | undef
 
   const client = createCoreApiClient();
 
-  const [bets, people] = await Promise.all([
+  const [matches, bets, people] = await Promise.all([
+    fetchAllPages<MatchRecord>(async (after) => {
+      const { matches: page } = await client.query({
+        matches: {
+          __args: { first: PAGE_SIZE, after },
+          edges: {
+            node: {
+              home: true,
+              away: true,
+              stage: true,
+              homeQuote: true,
+              drawQuote: true,
+              awayQuote: true,
+              homeBreakeven: true,
+              drawBreakeven: true,
+              awayBreakeven: true,
+            },
+          },
+          pageInfo: { hasNextPage: true, endCursor: true },
+        },
+      });
+      return page;
+    }),
     fetchAllPages<BetRecord>(async (after) => {
       const { bets: page } = await client.query({
         bets: {
@@ -134,13 +161,6 @@ const fetchOutcomes = async (match: FootballDataMatch): Promise<Outcomes | undef
               match: {
                 home: true,
                 away: true,
-                stage: true,
-                homeQuote: true,
-                drawQuote: true,
-                awayQuote: true,
-                homeBreakeven: true,
-                drawBreakeven: true,
-                awayBreakeven: true,
               },
             },
           },
@@ -161,6 +181,13 @@ const fetchOutcomes = async (match: FootballDataMatch): Promise<Outcomes | undef
     }),
   ]);
 
+  const matchRecord = matches.find(
+    (record) =>
+      record.home &&
+      record.away &&
+      teamPairKey(record.home, record.away) === livePairKey,
+  );
+
   const matchBets = bets.filter(
     (bet) =>
       bet.match?.home &&
@@ -168,30 +195,29 @@ const fetchOutcomes = async (match: FootballDataMatch): Promise<Outcomes | undef
       teamPairKey(bet.match.home, bet.match.away) === livePairKey,
   );
 
-  if (matchBets.length === 0) {
+  if (!matchRecord && matchBets.length === 0) {
     return undefined;
   }
 
-  const stage = matchBets[0]?.match?.stage ?? null;
+  const stage = matchRecord?.stage ?? null;
   const pot = 10 * getStageMultiplier(stage) * matchBets.length;
 
-  const matchQuotes = matchBets[0]?.match;
   const inverseQuote = (quote: number | null | undefined): number =>
     quote && quote > 0 ? 1 / quote : 0;
   const inverseByOutcome: Record<BetValue, number> = {
-    [BetValue.HOME_WIN]: inverseQuote(matchQuotes?.homeQuote),
-    [BetValue.NULL_OR_DRAW]: inverseQuote(matchQuotes?.drawQuote),
-    [BetValue.AWAY_WIN]: inverseQuote(matchQuotes?.awayQuote),
+    [BetValue.HOME_WIN]: inverseQuote(matchRecord?.homeQuote),
+    [BetValue.NULL_OR_DRAW]: inverseQuote(matchRecord?.drawQuote),
+    [BetValue.AWAY_WIN]: inverseQuote(matchRecord?.awayQuote),
   };
   const quoteByOutcome: Record<BetValue, number | null> = {
-    [BetValue.HOME_WIN]: matchQuotes?.homeQuote ?? null,
-    [BetValue.NULL_OR_DRAW]: matchQuotes?.drawQuote ?? null,
-    [BetValue.AWAY_WIN]: matchQuotes?.awayQuote ?? null,
+    [BetValue.HOME_WIN]: matchRecord?.homeQuote ?? null,
+    [BetValue.NULL_OR_DRAW]: matchRecord?.drawQuote ?? null,
+    [BetValue.AWAY_WIN]: matchRecord?.awayQuote ?? null,
   };
   const breakevenByOutcome: Record<BetValue, number | null> = {
-    [BetValue.HOME_WIN]: matchQuotes?.homeBreakeven ?? null,
-    [BetValue.NULL_OR_DRAW]: matchQuotes?.drawBreakeven ?? null,
-    [BetValue.AWAY_WIN]: matchQuotes?.awayBreakeven ?? null,
+    [BetValue.HOME_WIN]: matchRecord?.homeBreakeven ?? null,
+    [BetValue.NULL_OR_DRAW]: matchRecord?.drawBreakeven ?? null,
+    [BetValue.AWAY_WIN]: matchRecord?.awayBreakeven ?? null,
   };
   const totalInverse =
     inverseByOutcome[BetValue.HOME_WIN] +

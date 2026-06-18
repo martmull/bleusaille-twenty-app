@@ -1,3 +1,4 @@
+import { notifyOddsApiKeyExpired } from 'src/logic-functions/shared/resend';
 import { canonicalTeamName, teamPairKey } from 'src/logic-functions/shared/team-aliases';
 
 const ODDS_API_KEY = process.env.ODDS_API_KEY ?? '';
@@ -28,6 +29,7 @@ export const fetchWorldCupWinnerChances = async (): Promise<Map<string, number>>
   const response = await fetch(ODDS_API_URL);
 
   if (!response.ok) {
+    await notifyOddsApiKeyExpired({ url: ODDS_API_URL, status: response.status });
     throw new Error(`Odds API request failed: ${response.status}`);
   }
 
@@ -62,9 +64,12 @@ export type MatchResultChances = {
  * probability of a draw and of each team winning (keyed by canonical name).
  */
 export const fetchMatchResultChances = async (): Promise<Map<string, MatchResultChances>> => {
+  try {
+
   const response = await fetch(MATCH_ODDS_API_URL);
 
   if (!response.ok) {
+    await notifyOddsApiKeyExpired({ url: MATCH_ODDS_API_URL, status: response.status });
     throw new Error(`Match odds API request failed: ${response.status}`);
   }
 
@@ -111,4 +116,10 @@ export const fetchMatchResultChances = async (): Promise<Map<string, MatchResult
   }
 
   return byPair;
+  }
+  catch (error) {
+    console.error('Error fetching match odds:', error);
+    await notifyOddsApiKeyExpired({ url: ODDS_API_URL, status: 500 });
+    throw error;
+  }
 };
