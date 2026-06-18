@@ -10,9 +10,20 @@ const POLL_INTERVAL_MS = 30_000;
 
 type LiveMatchState = 'LIVE' | 'HALF_TIME' | 'UPCOMING';
 
+type OutcomeUser = {
+  name: string;
+  newPuntos: number;
+  newRank: number;
+  rankDelta: number;
+};
+
 type OutcomeBets = {
   ev: number | null;
-  users: string[];
+  payout: number;
+  probability: number | null;
+  quote: number | null;
+  breakeven: number | null;
+  users: OutcomeUser[];
 };
 
 type Outcomes = {
@@ -46,6 +57,7 @@ type Theme = {
   faint: string;
   positive: string;
   positiveDot: string;
+  negative: string;
   amber: string;
   border: string;
   goldChipBackground: string;
@@ -64,6 +76,7 @@ const getTheme = (scheme: 'light' | 'dark'): Theme =>
         faint: '#5a5868',
         positive: '#4ade80',
         positiveDot: '#34d399',
+        negative: '#f87171',
         amber: '#fbbf24',
         border: '#34333f',
         goldChipBackground: 'linear-gradient(180deg, #4a3c18 0%, #5e4b1f 100%)',
@@ -83,6 +96,7 @@ const getTheme = (scheme: 'light' | 'dark'): Theme =>
         faint: '#c4c0d6',
         positive: '#15803d',
         positiveDot: '#16a34a',
+        negative: '#dc2626',
         amber: '#b45309',
         border: '#eceaf3',
         goldChipBackground: 'linear-gradient(180deg, #fff6da 0%, #ffe9a8 100%)',
@@ -105,15 +119,21 @@ const OUTCOME_ORDER: OutcomeKey[] = ['home', 'draw', 'away'];
 
 const formatEv = (ev: number | null): string => (ev === null ? '—' : ev.toFixed(1));
 
-const longestOutcome = (outcomes: Outcomes): OutcomeKey | null => {
-  let longest: OutcomeKey | null = null;
-  for (const key of OUTCOME_ORDER) {
-    const count = outcomes[key].users.length;
-    if (count > 0 && (longest === null || count > outcomes[longest].users.length)) {
-      longest = key;
-    }
+const formatRankDelta = (delta: number): string =>
+  delta > 0 ? `+${delta}` : delta < 0 ? `${delta}` : '=';
+
+const formatProbability = (probability: number | null): string =>
+  probability === null ? '' : `${Math.round(probability * 100)}%`;
+
+const formatQuoteBreakeven = (quote: number | null, breakeven: number | null): string => {
+  const parts: string[] = [];
+  if (quote !== null) {
+    parts.push(quote.toFixed(2));
   }
-  return longest;
+  if (breakeven !== null) {
+    parts.push(`${breakeven} BE`);
+  }
+  return parts.length > 0 ? ` (${parts.join(' · ')})` : '';
 };
 
 const kickoffFormatter = new Intl.DateTimeFormat('fr-FR', {
@@ -128,6 +148,20 @@ const KEYFRAMES = `
 @keyframes live-dot-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.8); } }
 @keyframes live-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes live-pop { 0% { transform: scale(0.6); opacity: 0; } 70% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+.lm-bets-wrap { container-type: inline-size; width: 100%; }
+.lm-bets { display: flex; flex-direction: row; align-items: flex-start; justify-content: center; gap: 12px; width: 100%; }
+.lm-bets-sep { flex: 0 0 auto; align-self: stretch; width: 1px; }
+.lm-outcome { container-type: inline-size; flex: 1 1 0; min-width: 0; }
+.lm-outcome-header { display: flex; flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px; }
+@container (max-width: 420px) {
+  .lm-bets { flex-direction: column; align-items: stretch; }
+  .lm-bets-sep { align-self: auto; width: 100%; height: 1px; }
+  .lm-outcome { flex: 0 0 auto; width: 100%; }
+}
+@container (max-width: 150px) {
+  .lm-outcome-header { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .lm-outcome-sep { display: none; }
+}
 `;
 
 const formatAge = (seconds: number): string =>
@@ -280,115 +314,148 @@ const BetChip = ({ style }: { style: ChipStyle }) => (
   </span>
 );
 
-const NameChip = ({ name, index }: { name: string; index: number }) => {
+const UserRow = ({ user, index }: { user: OutcomeUser; index: number }) => {
   const theme = getTheme(useColorScheme());
+  const deltaColor =
+    user.rankDelta > 0 ? theme.positive : user.rankDelta < 0 ? theme.negative : theme.muted;
 
   return (
-  <span
-    style={{
-      display: 'inline-block',
-      padding: '2px 8px',
-      borderRadius: '999px',
-      background: theme.goldChipBackground,
-      border: `1px solid ${theme.goldChipBorder}`,
-      fontSize: '11px',
-      fontWeight: 700,
-      color: theme.goldChipText,
-      animation: `live-pop 0.35s ${0.05 * index}s both`,
-    }}
-  >
-    {name}
-  </span>
+    <tr style={{ animation: `live-pop 0.35s ${0.05 * index}s both` }}>
+      <td
+        style={{
+          width: '100%',
+          maxWidth: 0,
+          padding: '2px 6px 2px 0',
+          fontSize: '12px',
+          fontWeight: 700,
+          color: theme.textPrimary,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {user.name}
+      </td>
+      <td
+        style={{
+          padding: '2px 6px 2px 0',
+          fontSize: '11px',
+          fontWeight: 800,
+          color: theme.goldChipText,
+          textAlign: 'right',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {user.newPuntos}
+      </td>
+      <td
+        style={{
+          padding: '2px 5px 2px 0',
+          fontSize: '11px',
+          color: theme.muted,
+          textAlign: 'right',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        #{user.newRank}
+      </td>
+      <td
+        style={{
+          padding: '2px 0',
+          fontSize: '11px',
+          fontWeight: 800,
+          color: deltaColor,
+          textAlign: 'right',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {formatRankDelta(user.rankDelta)}
+      </td>
+    </tr>
   );
 };
 
-const OutcomeColumn = ({
-  outcome,
-  style,
-  collapsed,
-}: {
-  outcome: OutcomeBets;
-  style: ChipStyle;
-  collapsed: boolean;
-}) => {
+const OutcomeColumn = ({ outcome, style }: { outcome: OutcomeBets; style: ChipStyle }) => {
   const theme = getTheme(useColorScheme());
 
   return (
   <div
+    className="lm-outcome"
     style={{
-      flex: '1 1 0',
-      minWidth: 0,
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'flex-start',
-      gap: '7px',
+      gap: '8px',
     }}
   >
-    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+    <div className="lm-outcome-header">
       <BetChip style={style} />
+      <span
+        className="lm-outcome-sep"
+        style={{ flex: '0 0 auto', alignSelf: 'stretch', width: '1px', background: theme.border }}
+      />
       <span style={{ fontSize: '16px', fontWeight: 800, color: theme.textPrimary, lineHeight: 1 }}>
         {formatEv(outcome.ev)}
       </span>
+      {outcome.probability !== null ? (
+        <span style={{ fontSize: '12px', fontWeight: 700, color: theme.subtle, lineHeight: 1 }}>
+          {formatProbability(outcome.probability)}
+          <span style={{ fontWeight: 500, color: theme.faint }}>
+            {formatQuoteBreakeven(outcome.quote, outcome.breakeven)}
+          </span>
+        </span>
+      ) : null}
+      {outcome.users.length > 0 ? (
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            padding: '1px 7px',
+            borderRadius: '999px',
+            background: theme.goldChipBackground,
+            border: `1px solid ${theme.goldChipBorder}`,
+            fontSize: '11px',
+            fontWeight: 800,
+            color: theme.goldChipText,
+          }}
+        >
+          +{outcome.payout}
+        </span>
+      ) : null}
     </div>
-    <div
-      style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        justifyContent: 'flex-start',
-        gap: '4px',
-        width: '100%',
-        minWidth: 0,
-      }}
-    >
-      {outcome.users.length === 0 ? (
-        <span style={{ fontSize: '11px', color: theme.faint }}>—</span>
-      ) : collapsed ? (
-        <>
-          {outcome.users.slice(0, 3).map((name, index) => (
-            <NameChip key={name} name={name} index={index} />
+    {outcome.users.length === 0 ? (
+      <span style={{ fontSize: '11px', color: theme.faint }}>—</span>
+    ) : (
+      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
+        <tbody>
+          {outcome.users.map((user, index) => (
+            <UserRow key={user.name} user={user} index={index} />
           ))}
-          {outcome.users.length > 3 ? (
-            <span style={{ width: '100%', fontSize: '11px', fontWeight: 700, color: theme.muted }}>
-              ... {outcome.users.length - 3} others
-            </span>
-          ) : null}
-        </>
-      ) : (
-        outcome.users.map((name, index) => <NameChip key={name} name={name} index={index} />)
-      )}
-    </div>
+        </tbody>
+      </table>
+    )}
   </div>
   );
 };
 
 const BetsSection = ({ outcomes }: { outcomes: Outcomes }) => {
   const theme = getTheme(useColorScheme());
-  const collapsedKey = longestOutcome(outcomes);
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        gap: '12px',
-        width: '100%',
-      }}
-    >
-      {OUTCOME_ORDER.map((key, index) => (
-        <Fragment key={key}>
-          {index > 0 ? (
-            <span
-              style={{ flex: '0 0 auto', alignSelf: 'stretch', width: '1px', background: theme.border }}
+    <div className="lm-bets-wrap">
+      <div className="lm-bets">
+        {OUTCOME_ORDER.map((key, index) => (
+          <Fragment key={key}>
+            {index > 0 ? (
+              <span className="lm-bets-sep" style={{ background: theme.border }} />
+            ) : null}
+            <OutcomeColumn
+              outcome={outcomes[key]}
+              style={{ betLabel: OUTCOME_BET_LABEL[key], ...theme.outcomeChips[key] }}
             />
-          ) : null}
-          <OutcomeColumn
-            outcome={outcomes[key]}
-            style={{ betLabel: OUTCOME_BET_LABEL[key], ...theme.outcomeChips[key] }}
-            collapsed={key === collapsedKey}
-          />
-        </Fragment>
-      ))}
+          </Fragment>
+        ))}
+      </div>
     </div>
   );
 };
@@ -448,8 +515,7 @@ const Scoreboard = ({
       <div
         style={{
           flexShrink: 0,
-          marginTop: 'auto',
-          marginBottom: 'auto',
+          marginTop: '16px',
           display: 'flex',
           flexDirection: 'column',
           gap: '14px',
