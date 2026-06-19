@@ -3,6 +3,7 @@ import { defineLogicFunction } from 'twenty-sdk/define';
 import { createCoreApiClient, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
 import { getStageMultiplier } from 'src/logic-functions/shared/compute-puntos';
 import { fetchWorldCupMatches } from 'src/logic-functions/shared/football-data';
+import { fetchSportscoreLiveMatch } from 'src/logic-functions/shared/sportscore';
 import { teamPairKey } from 'src/logic-functions/shared/team-aliases';
 import { BetValue } from 'src/objects/bet.object';
 
@@ -70,6 +71,8 @@ type Outcomes = {
 
 type LiveMatchState = 'LIVE' | 'HALF_TIME' | 'UPCOMING';
 
+type LiveMatchDataSource = 'sportscore' | 'football-data';
+
 type LiveMatchResponse = {
   found: boolean;
   state?: LiveMatchState;
@@ -80,6 +83,7 @@ type LiveMatchResponse = {
   startDate?: string;
   stageLabel?: string;
   groupLabel?: string | null;
+  dataSource?: LiveMatchDataSource;
   outcomes?: Outcomes;
 };
 
@@ -317,18 +321,38 @@ const handler = async (): Promise<LiveMatchResponse> => {
       : 'LIVE'
     : 'UPCOMING';
 
+  let liveState = state;
+  let homeScore = state === 'UPCOMING' ? null : selected.score.fullTime.home;
+  let awayScore = state === 'UPCOMING' ? null : selected.score.fullTime.away;
+  let dataSource: LiveMatchDataSource = 'football-data';
+
+  if (state !== 'UPCOMING') {
+    const sportscore = await fetchSportscoreLiveMatch(
+      selected.homeTeam.name!,
+      selected.awayTeam.name!,
+    );
+
+    if (sportscore && sportscore.state !== 'UPCOMING') {
+      liveState = sportscore.state === 'HALF_TIME' ? 'HALF_TIME' : 'LIVE';
+      homeScore = sportscore.homeScore ?? homeScore;
+      awayScore = sportscore.awayScore ?? awayScore;
+      dataSource = 'sportscore';
+    }
+  }
+
   const outcomes = await fetchOutcomes(selected);
 
   return {
     found: true,
-    state,
+    state: liveState,
     home: selected.homeTeam.name ?? '',
     away: selected.awayTeam.name ?? '',
-    homeScore: state === 'UPCOMING' ? null : selected.score.fullTime.home,
-    awayScore: state === 'UPCOMING' ? null : selected.score.fullTime.away,
+    homeScore,
+    awayScore,
     startDate: selected.utcDate,
     stageLabel: toStageLabel(selected.stage),
     groupLabel: toGroupLabel(selected.group),
+    dataSource,
     outcomes,
   };
 };

@@ -45,6 +45,7 @@ type LiveMatchResponse = {
   startDate?: string;
   stageLabel?: string;
   groupLabel?: string | null;
+  dataSource?: 'sportscore' | 'football-data';
   outcomes?: Outcomes;
 };
 
@@ -168,18 +169,25 @@ const KEYFRAMES = `
 const formatAge = (seconds: number): string =>
   seconds < 60 ? `since ${seconds}s` : `since ${Math.floor(seconds / 60)}min`;
 
+const DATA_SOURCE_LABEL: Record<'sportscore' | 'football-data', string> = {
+  sportscore: 'sportscore',
+  'football-data': 'football-data',
+};
+
 const RefreshFooter = ({
   lastRefreshedAt,
   now,
   onRefresh,
   isRefreshing,
   stale,
+  dataSource,
 }: {
   lastRefreshedAt: number | null;
   now: number;
   onRefresh: () => void;
   isRefreshing: boolean;
   stale: boolean;
+  dataSource?: 'sportscore' | 'football-data';
 }) => {
   const theme = getTheme(useColorScheme());
   const seconds =
@@ -200,6 +208,7 @@ const RefreshFooter = ({
     >
       <span style={{ whiteSpace: 'nowrap' }}>
         {seconds === null ? '—' : formatAge(seconds)}
+        {dataSource ? ` · ${DATA_SOURCE_LABEL[dataSource]}` : ''}
         {stale ? ' · hors ligne' : ''}
       </span>
       <button
@@ -660,6 +669,7 @@ const LiveMatch = () => {
           onRefresh={load}
           isRefreshing={isRefreshing}
           stale={error}
+          dataSource={data.dataSource}
         />
       }
     />

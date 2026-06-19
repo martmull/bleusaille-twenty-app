@@ -88,7 +88,11 @@ After the match is selected and `state`/scores computed from football-data:
     the match early; football-data still controls when the match leaves the live window).
 - If it returns `null`, keep football-data's values unchanged.
 
-No change to selection, outcomes, stage/group labels, or the response shape.
+The response gains a `dataSource: 'sportscore' | 'football-data'` field indicating which
+service supplied the displayed score/state, so the front component can surface it. The
+`live-match.tsx` footer ("notification message") appends ` · <source>` next to the refresh age.
+
+No change to selection, outcomes, or stage/group labels.
 
 ## Out of scope (YAGNI)
 
