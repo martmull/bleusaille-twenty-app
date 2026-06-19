@@ -44,8 +44,11 @@ type LiveMatchResponse = {
   awayScore?: number | null;
   startDate?: string;
   stageLabel?: string;
-  groupLabel?: string | null;
   dataSource?: 'sportscore' | 'football-data';
+};
+
+type MatchOddsResponse = {
+  found: boolean;
   outcomes?: Outcomes;
 };
 
@@ -472,14 +475,16 @@ const BetsSection = ({ outcomes }: { outcomes: Outcomes }) => {
 
 const Scoreboard = ({
   data,
+  outcomes,
   footer,
 }: {
   data: LiveMatchResponse;
+  outcomes: Outcomes | null;
   footer: React.ReactNode;
 }) => {
   const theme = getTheme(useColorScheme());
   const isUpcoming = data.state === 'UPCOMING';
-  const context = [data.stageLabel, data.groupLabel].filter(Boolean).join(' · ');
+  const context = data.stageLabel ?? '';
 
   return (
     <div
@@ -569,10 +574,10 @@ const Scoreboard = ({
         </div>
           <TeamName name={data.away ?? ''} align="left" />
         </div>
-        {data.outcomes ? (
+        {outcomes ? (
           <>
             <div style={{ flex: '0 0 auto', height: '1px', background: theme.border }} />
-            <BetsSection outcomes={data.outcomes} />
+            <BetsSection outcomes={outcomes} />
           </>
         ) : null}
       </div>
@@ -607,6 +612,7 @@ const Centered = ({ children }: { children: React.ReactNode }) => {
 
 const LiveMatch = () => {
   const [data, setData] = useState<LiveMatchResponse | null>(null);
+  const [outcomes, setOutcomes] = useState<Outcomes | null>(null);
   const [error, setError] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -617,7 +623,7 @@ const LiveMatch = () => {
     clientRef.current = new RestApiClient();
   }
 
-  const load = useCallback(() => {
+  const loadLive = useCallback(() => {
     setIsRefreshing(true);
     clientRef
       .current!.get<LiveMatchResponse>('/s/live-match')
@@ -630,22 +636,46 @@ const LiveMatch = () => {
       .finally(() => setIsRefreshing(false));
   }, []);
 
+  const loadOdds = useCallback((home: string, away: string) => {
+    const query = `home=${encodeURIComponent(home)}&away=${encodeURIComponent(away)}`;
+    clientRef
+      .current!.get<MatchOddsResponse>(`/s/match-odds?${query}`)
+      .then((response) => setOutcomes(response.found ? response.outcomes ?? null : null))
+      .catch(() => setOutcomes(null));
+  }, []);
+
   const isRunning = data?.state === 'LIVE' || data?.state === 'HALF_TIME';
+  const matchKey = data?.found && data.home && data.away ? `${data.home}|${data.away}` : null;
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadLive();
+  }, [loadLive]);
 
   useEffect(() => {
     const intervalMs = isRunning ? LIVE_POLL_INTERVAL_MS : IDLE_POLL_INTERVAL_MS;
-    const interval = setInterval(load, intervalMs);
+    const interval = setInterval(loadLive, intervalMs);
     return () => clearInterval(interval);
-  }, [isRunning, load]);
+  }, [isRunning, loadLive]);
+
+  useEffect(() => {
+    if (data?.found && data.home && data.away) {
+      loadOdds(data.home, data.away);
+    } else {
+      setOutcomes(null);
+    }
+  }, [matchKey, loadOdds]);
 
   useEffect(() => {
     const ticker = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(ticker);
   }, []);
+
+  const refresh = useCallback(() => {
+    loadLive();
+    if (data?.found && data.home && data.away) {
+      loadOdds(data.home, data.away);
+    }
+  }, [loadLive, loadOdds, data]);
 
   if (error && !data) {
     return <Centered>Score indisponible</Centered>;
@@ -662,11 +692,12 @@ const LiveMatch = () => {
   return (
     <Scoreboard
       data={data}
+      outcomes={outcomes}
       footer={
         <RefreshFooter
           lastRefreshedAt={lastRefreshedAt}
           now={now}
-          onRefresh={load}
+          onRefresh={refresh}
           isRefreshing={isRefreshing}
           stale={error}
           dataSource={data.dataSource}

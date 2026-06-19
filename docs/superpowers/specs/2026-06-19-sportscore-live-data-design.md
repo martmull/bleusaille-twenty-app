@@ -28,10 +28,28 @@ football-data as the source of truth for everything else and as a fallback.
 
 ## Scope
 
-Live match only. football-data keeps driving the fixture list, match selection,
-stage/group/dates and `fetchOutcomes`. Sportscore overlays only the live score and state
-of the already-selected, in-progress match in `live-match.ts`. Sportscore **never removes
-a match**: when it reports FT, we still show the final score with the existing state machine.
+Live match only. Sportscore is the **primary** live source; football-data is a fallback.
+
+**Architecture (revised):**
+- **Match selection comes from the DB** (`Match` objects: `home`/`away`/`startDate`/`endDate`/
+  `stage`), not football-data — so sportscore can be queried *before* football-data is touched.
+  `selectCurrentMatch` (pure, unit-tested) picks the in-progress match (now within
+  `startDate`..`endDate`, falling back to a 3h window) or the next upcoming one.
+- **Live score/state for an in-progress match:** try sportscore first; only if sportscore
+  returns `null` do we call football-data. Sportscore is authoritative when present (incl.
+  `UPCOMING`/`FINISHED`). `FINISHED` → show the final score with state `LIVE` (never drop a
+  match early).
+- **The live-score call and the odds call are separate logic functions** (`live-match` and
+  `match-odds`), polled independently by the front component.
+- `group` is not stored in the DB, so the group sub-label is dropped (minor); `stage` uses the
+  same enum strings football-data used, so the French stage labels are unchanged.
+
+### CORS: sportscore must stay server-side
+
+sportscore.com returns the JSON but sends **no `Access-Control-Allow-Origin` header**, so a
+browser `fetch` from the front component is blocked. The front therefore cannot call sportscore
+directly; a thin server-side `live-match` logic function proxies it (server-side fetch is not
+subject to CORS).
 
 ## Component: `src/logic-functions/shared/sportscore.ts`
 
@@ -75,24 +93,30 @@ export const fetchSportscoreLiveMatch = (
    event's `minute` (fallback `null`).
 5. **Any network or parse error → return `null`** (never throw), so the caller always falls back.
 
-## Integration: `src/logic-functions/live-match.ts`
+## Logic functions
 
-After the match is selected and `state`/scores computed from football-data:
+### `src/logic-functions/live-match.ts` (lightweight)
 
-- If the selected match's football-data `state !== 'UPCOMING'`, call
-  `fetchSportscoreLiveMatch(home, away)`.
-- If it returns non-null:
-  - Override `homeScore`/`awayScore` with sportscore's values when they are non-null.
-  - Refine `state`: sportscore `HALF_TIME` → `HALF_TIME`, otherwise keep `LIVE`.
-    Sportscore `FINISHED` → keep state `LIVE` and show the final score (decision: never drop
-    the match early; football-data still controls when the match leaves the live window).
-- If it returns `null`, keep football-data's values unchanged.
+1. Query DB `Match` records, `selectCurrentMatch(matches, Date.now())`.
+2. If in-progress, `fetchLiveScore(home, away)`:
+   - `fetchSportscoreLiveMatch` first; if non-null, map state (`HALF_TIME`→`HALF_TIME`,
+     `UPCOMING`→`UPCOMING`, `LIVE`/`FINISHED`→`LIVE`), `dataSource: 'sportscore'`.
+   - Else `fetchFootballDataLive`: find the WC match by `teamPairKey`; if status is
+     `IN_PLAY`/`PAUSED`, return its score/state with `dataSource: 'football-data'`, else `null`.
+3. Response: `{ found, state, home, away, homeScore, awayScore, startDate, stageLabel,
+   dataSource }`. No outcomes.
 
-The response gains a `dataSource: 'sportscore' | 'football-data'` field indicating which
-service supplied the displayed score/state, so the front component can surface it. The
-`live-match.tsx` footer ("notification message") appends ` · <source>` next to the refresh age.
+### `src/logic-functions/match-odds.ts` (new)
 
-No change to selection, outcomes, or stage/group labels.
+Holds the former `fetchOutcomes` computation. Reads `home`/`away` from
+`event.queryStringParameters` and returns `{ found, outcomes }`.
+
+## Front: `src/front-components/live-match.tsx`
+
+- Two independent calls: `/s/live-match` (fast poll: 30s running / 120s idle) and
+  `/s/match-odds?home=&away=` (fetched when the selected match changes and on manual refresh).
+- `dataSource` is shown in the footer ("notification message"): ` · sportscore` /
+  ` · football-data` next to the refresh age.
 
 ## Out of scope (YAGNI)
 
