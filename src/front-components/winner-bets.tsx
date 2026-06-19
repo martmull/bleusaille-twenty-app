@@ -58,7 +58,7 @@ const getTheme = (scheme: 'light' | 'dark'): Theme =>
         cardShadow: '0 2px 6px rgba(80, 60, 140, 0.06)',
         textPrimary: '#1a1a1a',
         heading: '#3a2f63',
-        muted: '#9ca3af',
+        muted: '#5d6674',
         chipBackground: 'linear-gradient(180deg, #fff6da 0%, #ffe9a8 100%)',
         chipBorder: '#f5d77a',
         chipText: '#7c5a12',
@@ -93,7 +93,7 @@ const getResponsiveCss = (theme: Theme) => `
   align-items: center;
   gap: 5px;
   flex: 0 0 auto;
-  width: 120px;
+  width: 80px;
   min-width: 0;
 }
 .wb-footixs {
@@ -128,6 +128,11 @@ const formatChance = (value: number | null): string =>
 
 const formatPuntos = (value: number | null): string =>
   value === null ? '–' : `${value}`;
+
+const formatWonIfVictory = (expectedPuntos: number | null, chance: number | null): string =>
+  expectedPuntos === null || chance === null || chance <= 0
+    ? ''
+    : ` (${Math.round(expectedPuntos / (chance / 100))})`;
 
 const Shell = ({ children }: { children: React.ReactNode }) => {
   const theme = getTheme(useColorScheme());
@@ -267,25 +272,15 @@ const BetCard = ({ bet, index }: { bet: WinnerBetGroup; index: number }) => {
         <span
           style={{
             flex: '0 0 auto',
-            display: 'inline-flex',
-            alignItems: 'baseline',
-            gap: '3px',
+            fontSize: '12px',
+            fontWeight: 800,
+            color: theme.amber,
             whiteSpace: 'nowrap',
           }}
         >
-          <span
-            style={{
-              fontSize: '9px',
-              fontWeight: 800,
-              letterSpacing: '0.4px',
-              textTransform: 'uppercase',
-              color: theme.muted,
-            }}
-          >
-            exp puntos
-          </span>
-          <span style={{ fontSize: '12px', fontWeight: 800, color: theme.amber }}>
-            🪙 {formatPuntos(bet.puntosIfVictory)}
+          {formatPuntos(bet.puntosIfVictory)} puntos exp
+          <span style={{ fontWeight: 500, color: theme.muted }}>
+            {formatWonIfVictory(bet.puntosIfVictory, bet.victoryChance)}
           </span>
         </span>
       </div>
