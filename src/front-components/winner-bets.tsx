@@ -10,6 +10,7 @@ type WinnerBetGroup = {
   team: string;
   victoryChance: number | null;
   puntosIfVictory: number | null;
+  puntosWonIfVictory: number | null;
   footixs: string[];
 };
 
@@ -129,10 +130,8 @@ const formatChance = (value: number | null): string =>
 const formatPuntos = (value: number | null): string =>
   value === null ? '–' : `${value}`;
 
-const formatWonIfVictory = (expectedPuntos: number | null, chance: number | null): string =>
-  expectedPuntos === null || chance === null || chance <= 0
-    ? ''
-    : ` (${Math.round(expectedPuntos / (chance / 100))})`;
+const formatWonIfVictory = (won: number | null): string =>
+  won === null ? '' : ` (${won})`;
 
 const Shell = ({ children }: { children: React.ReactNode }) => {
   const theme = getTheme(useColorScheme());
@@ -280,7 +279,7 @@ const BetCard = ({ bet, index }: { bet: WinnerBetGroup; index: number }) => {
         >
           {formatPuntos(bet.puntosIfVictory)} puntos exp
           <span style={{ fontWeight: 500, color: theme.muted }}>
-            {formatWonIfVictory(bet.puntosIfVictory, bet.victoryChance)}
+            {formatWonIfVictory(bet.puntosWonIfVictory)}
           </span>
         </span>
       </div>

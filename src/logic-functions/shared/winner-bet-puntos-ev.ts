@@ -14,11 +14,27 @@ export type WinnerBetPuntosEvInput = {
 };
 
 /**
- * Expected puntos a person would earn from their World Cup winner bet:
+ * Puntos a person would win if their picked team actually wins the World Cup:
  *
  *   10 * MATCH_STAGE_MULTIPLIER.FINAL * NB_PARTICIPANT / NB_PREDICTED_WELL
- *
- * weighted by the probability that the picked team actually wins.
+ */
+export const computeWinnerBetPot = ({
+  participantCount,
+  predictorsForTeam,
+}: Pick<WinnerBetPuntosEvInput, 'participantCount' | 'predictorsForTeam'>): number | null => {
+  if (predictorsForTeam <= 0) {
+    return null;
+  }
+
+  return (
+    (WINNER_BET_BASE_POINTS * MATCH_STAGE_MULTIPLIER[MatchType.FINAL] * participantCount) /
+    predictorsForTeam
+  );
+};
+
+/**
+ * Expected puntos a person would earn from their World Cup winner bet:
+ * the pot weighted by the probability that the picked team actually wins.
  * Edit this function to tweak the formula.
  */
 export const computeWinnerBetPuntosEv = ({
@@ -26,15 +42,11 @@ export const computeWinnerBetPuntosEv = ({
   predictorsForTeam,
   victoryChancePct,
 }: WinnerBetPuntosEvInput): number | null => {
-  if (victoryChancePct === null || predictorsForTeam <= 0) {
+  const potIfTeamWins = computeWinnerBetPot({ participantCount, predictorsForTeam });
+
+  if (victoryChancePct === null || potIfTeamWins === null) {
     return null;
   }
 
-  const potIfTeamWins =
-    (WINNER_BET_BASE_POINTS * MATCH_STAGE_MULTIPLIER[MatchType.FINAL] * participantCount) /
-    predictorsForTeam;
-
-  const expectedPuntos = potIfTeamWins * (victoryChancePct / 100);
-
-  return Math.round(expectedPuntos);
+  return Math.round(potIfTeamWins * (victoryChancePct / 100));
 };

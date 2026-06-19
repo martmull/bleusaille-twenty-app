@@ -1,6 +1,7 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
 import { createCoreApiClient, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { computeWinnerBetPot } from 'src/logic-functions/shared/winner-bet-puntos-ev';
 
 type PersonRecord = {
   name: { firstName: string | null } | null;
@@ -9,11 +10,15 @@ type PersonRecord = {
   winnerBetPuntosEv: number | null;
 };
 
-type WinnerBetGroup = {
+type GroupAccumulator = {
   team: string;
   victoryChance: number | null;
   puntosIfVictory: number | null;
   footixs: string[];
+};
+
+type WinnerBetGroup = GroupAccumulator & {
+  puntosWonIfVictory: number | null;
 };
 
 const handler = async (): Promise<{ bets: WinnerBetGroup[] }> => {
@@ -37,7 +42,18 @@ const handler = async (): Promise<{ bets: WinnerBetGroup[] }> => {
     return page;
   });
 
-  const groupsByTeam = new Map<string, WinnerBetGroup>();
+  const participantCount = people.length;
+  const normalizeTeam = (team: string): string => team.trim().toLowerCase();
+
+  const predictorsByTeam = new Map<string, number>();
+  for (const person of people) {
+    if (person.wcWinnerBet) {
+      const key = normalizeTeam(person.wcWinnerBet);
+      predictorsByTeam.set(key, (predictorsByTeam.get(key) ?? 0) + 1);
+    }
+  }
+
+  const groupsByTeam = new Map<string, GroupAccumulator>();
   for (const person of people) {
     const footix = person.name?.firstName;
     const team = person.wcWinnerBet;
@@ -55,11 +71,19 @@ const handler = async (): Promise<{ bets: WinnerBetGroup[] }> => {
     groupsByTeam.set(team, group);
   }
 
-  const bets = [...groupsByTeam.values()]
-    .map((group) => ({
-      ...group,
-      footixs: group.footixs.sort((a, b) => a.localeCompare(b)),
-    }))
+  const bets: WinnerBetGroup[] = [...groupsByTeam.values()]
+    .map((group) => {
+      const pot = computeWinnerBetPot({
+        participantCount,
+        predictorsForTeam: predictorsByTeam.get(normalizeTeam(group.team)) ?? 0,
+      });
+
+      return {
+        ...group,
+        puntosWonIfVictory: pot === null ? null : Math.round(pot),
+        footixs: group.footixs.sort((a, b) => a.localeCompare(b)),
+      };
+    })
     .sort((a, b) => (b.puntosIfVictory ?? 0) - (a.puntosIfVictory ?? 0));
 
   return { bets };
