@@ -1,7 +1,6 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
 import { createCoreApiClient, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
-import { selectCurrentMatch } from 'src/logic-functions/shared/current-match';
 import { fetchWorldCupMatches } from 'src/logic-functions/shared/football-data';
 import { fetchSportscoreLiveMatch } from 'src/logic-functions/shared/sportscore';
 import { teamPairKey } from 'src/logic-functions/shared/team-aliases';
@@ -27,8 +26,10 @@ type LiveMatchState = 'LIVE' | 'HALF_TIME' | 'UPCOMING';
 
 type LiveMatchDataSource = 'sportscore' | 'football-data';
 
+type LiveScoreState = LiveMatchState | 'FINISHED';
+
 type LiveScore = {
-  state: LiveMatchState;
+  state: LiveScoreState;
   homeScore: number | null;
   awayScore: number | null;
   dataSource: LiveMatchDataSource;
@@ -47,6 +48,9 @@ type LiveMatchResponse = {
 };
 
 const IN_PROGRESS_STATUSES = new Set(['IN_PLAY', 'PAUSED']);
+
+const LIVE_LOOKBACK_MS = 4 * 60 * 60 * 1000;
+const FALLBACK_LIVE_WINDOW_MS = 3 * 60 * 60 * 1000;
 
 const STAGE_LABELS: Record<string, string> = {
   GROUP_STAGE: 'Phase de groupes',
@@ -72,7 +76,20 @@ const fetchFootballDataLive = async (home: string, away: string): Promise<LiveSc
       teamPairKey(candidate.homeTeam.name, candidate.awayTeam.name) === pairKey,
   );
 
-  if (!match || !IN_PROGRESS_STATUSES.has(match.status)) {
+  if (!match) {
+    return null;
+  }
+
+  if (match.status === 'FINISHED') {
+    return {
+      state: 'FINISHED',
+      homeScore: match.score.fullTime.home,
+      awayScore: match.score.fullTime.away,
+      dataSource: 'football-data',
+    };
+  }
+
+  if (!IN_PROGRESS_STATUSES.has(match.status)) {
     return null;
   }
 
@@ -89,12 +106,7 @@ const fetchLiveScore = async (home: string, away: string): Promise<LiveScore | n
 
   if (sportscore) {
     return {
-      state:
-        sportscore.state === 'HALF_TIME'
-          ? 'HALF_TIME'
-          : sportscore.state === 'UPCOMING'
-            ? 'UPCOMING'
-            : 'LIVE',
+      state: sportscore.state,
       homeScore: sportscore.homeScore,
       awayScore: sportscore.awayScore,
       dataSource: 'sportscore',
@@ -102,6 +114,52 @@ const fetchLiveScore = async (home: string, away: string): Promise<LiveScore | n
   }
 
   return fetchFootballDataLive(home, away);
+};
+
+const buildLiveResponse = (
+  match: MatchRecord,
+  state: LiveMatchState,
+  live: LiveScore | null,
+): LiveMatchResponse => ({
+  found: true,
+  state,
+  home: match.home ?? '',
+  away: match.away ?? '',
+  homeScore: live?.homeScore ?? null,
+  awayScore: live?.awayScore ?? null,
+  startDate: match.startDate ?? undefined,
+  stageLabel: toStageLabel(match.stage),
+  dataSource: live?.dataSource,
+});
+
+const resolveLiveMatch = async (
+  matches: MatchRecord[],
+  nowMs: number,
+): Promise<LiveMatchResponse | null> => {
+  const candidate = matches
+    .filter((match) => match.home && match.away && match.startDate)
+    .filter((match) => {
+      const startMs = new Date(match.startDate!).getTime();
+      return startMs <= nowMs && nowMs - startMs <= LIVE_LOOKBACK_MS;
+    })
+    .sort((a, b) => new Date(b.startDate!).getTime() - new Date(a.startDate!).getTime())[0];
+
+  if (!candidate) {
+    return null;
+  }
+
+  const live = await fetchLiveScore(candidate.home!, candidate.away!);
+
+  if (live) {
+    return live.state === 'FINISHED' ? null : buildLiveResponse(candidate, live.state, live);
+  }
+
+  const startMs = new Date(candidate.startDate!).getTime();
+  const fallbackEndMs = candidate.endDate
+    ? new Date(candidate.endDate).getTime()
+    : startMs + FALLBACK_LIVE_WINDOW_MS;
+
+  return nowMs <= fallbackEndMs ? buildLiveResponse(candidate, 'LIVE', null) : null;
 };
 
 const handler = async (): Promise<LiveMatchResponse> => {
@@ -126,39 +184,31 @@ const handler = async (): Promise<LiveMatchResponse> => {
     return page;
   });
 
-  const selection = selectCurrentMatch(matches, Date.now());
+  const now = Date.now();
 
-  if (!selection) {
-    return { found: false };
+  const liveMatch = await resolveLiveMatch(matches, now);
+  if (liveMatch) {
+    return liveMatch;
   }
 
-  const { match, inProgress } = selection;
+  const upcoming = matches
+    .filter((match) => match.home && match.away && match.startDate)
+    .filter((match) => new Date(match.startDate!).getTime() > now)
+    .sort((a, b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime())[0];
 
-  let state: LiveMatchState = inProgress ? 'LIVE' : 'UPCOMING';
-  let homeScore: number | null = null;
-  let awayScore: number | null = null;
-  let dataSource: LiveMatchDataSource | undefined;
-
-  if (inProgress) {
-    const live = await fetchLiveScore(match.home!, match.away!);
-    if (live) {
-      state = live.state;
-      homeScore = live.homeScore;
-      awayScore = live.awayScore;
-      dataSource = live.dataSource;
-    }
+  if (!upcoming) {
+    return { found: false };
   }
 
   return {
     found: true,
-    state,
-    home: match.home ?? '',
-    away: match.away ?? '',
-    homeScore,
-    awayScore,
-    startDate: match.startDate ?? undefined,
-    stageLabel: toStageLabel(match.stage),
-    dataSource,
+    state: 'UPCOMING',
+    home: upcoming.home ?? '',
+    away: upcoming.away ?? '',
+    homeScore: null,
+    awayScore: null,
+    startDate: upcoming.startDate ?? undefined,
+    stageLabel: toStageLabel(upcoming.stage),
   };
 };
 
