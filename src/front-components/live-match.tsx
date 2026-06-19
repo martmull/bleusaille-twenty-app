@@ -47,9 +47,17 @@ type LiveMatchResponse = {
   dataSource?: 'sportscore' | 'football-data';
 };
 
+type LeaderboardEntry = {
+  name: string;
+  newPuntos: number;
+  newRank: number;
+  rankDelta: number;
+};
+
 type MatchOddsResponse = {
   found: boolean;
   outcomes?: Outcomes;
+  provisionalLeaderboard?: LeaderboardEntry[];
 };
 
 type ChipStyle = { betLabel: string; chipBg: string; chipText: string };
@@ -451,7 +459,13 @@ const OutcomeColumn = ({ outcome, style }: { outcome: OutcomeBets; style: ChipSt
   );
 };
 
-const BetsSection = ({ outcomes }: { outcomes: Outcomes }) => {
+const BetsSection = ({
+  outcomes,
+  leaderboard,
+}: {
+  outcomes: Outcomes;
+  leaderboard: LeaderboardEntry[] | null;
+}) => {
   const theme = getTheme(useColorScheme());
 
   return (
@@ -468,7 +482,104 @@ const BetsSection = ({ outcomes }: { outcomes: Outcomes }) => {
             />
           </Fragment>
         ))}
+        {leaderboard && leaderboard.length > 0 ? (
+          <>
+            <span className="lm-bets-sep" style={{ background: theme.border }} />
+            <LeaderboardColumn entries={leaderboard} />
+          </>
+        ) : null}
       </div>
+    </div>
+  );
+};
+
+const LeaderboardRow = ({ entry, index }: { entry: LeaderboardEntry; index: number }) => {
+  const theme = getTheme(useColorScheme());
+  const deltaColor =
+    entry.rankDelta > 0 ? theme.positive : entry.rankDelta < 0 ? theme.negative : theme.muted;
+
+  return (
+    <tr style={{ animation: `live-pop 0.35s ${0.03 * index}s both` }}>
+      <td
+        style={{
+          width: '100%',
+          maxWidth: 0,
+          padding: '2px 6px 2px 0',
+          fontSize: '14px',
+          fontWeight: 700,
+          color: theme.textPrimary,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {entry.name}
+      </td>
+      <td
+        style={{
+          padding: '2px 6px 2px 0',
+          fontSize: '13px',
+          fontWeight: 800,
+          color: theme.goldChipText,
+          textAlign: 'right',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {entry.newPuntos}
+      </td>
+      <td
+        style={{
+          padding: '2px 5px 2px 0',
+          fontSize: '13px',
+          color: theme.muted,
+          textAlign: 'right',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        #{entry.newRank}
+      </td>
+      <td
+        style={{
+          padding: '2px 0',
+          fontSize: '13px',
+          fontWeight: 800,
+          color: deltaColor,
+          textAlign: 'right',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {formatRankDelta(entry.rankDelta)}
+      </td>
+    </tr>
+  );
+};
+
+const LeaderboardColumn = ({ entries }: { entries: LeaderboardEntry[] }) => {
+  const theme = getTheme(useColorScheme());
+
+  return (
+    <div
+      className="lm-outcome"
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}
+    >
+      <span
+        style={{
+          fontSize: '11px',
+          fontWeight: 700,
+          letterSpacing: '0.4px',
+          textTransform: 'uppercase',
+          color: theme.subtle,
+        }}
+      >
+        Current standings
+      </span>
+      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
+        <tbody>
+          {entries.map((entry, index) => (
+            <LeaderboardRow key={`${entry.name}-${entry.newRank}`} entry={entry} index={index} />
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 };
@@ -476,10 +587,12 @@ const BetsSection = ({ outcomes }: { outcomes: Outcomes }) => {
 const Scoreboard = ({
   data,
   outcomes,
+  leaderboard,
   footer,
 }: {
   data: LiveMatchResponse;
   outcomes: Outcomes | null;
+  leaderboard: LeaderboardEntry[] | null;
   footer: React.ReactNode;
 }) => {
   const theme = getTheme(useColorScheme());
@@ -577,7 +690,7 @@ const Scoreboard = ({
         {outcomes ? (
           <>
             <div style={{ flex: '0 0 auto', height: '1px', background: theme.border }} />
-            <BetsSection outcomes={outcomes} />
+            <BetsSection outcomes={outcomes} leaderboard={leaderboard} />
           </>
         ) : null}
       </div>
@@ -613,6 +726,7 @@ const Centered = ({ children }: { children: React.ReactNode }) => {
 const LiveMatch = () => {
   const [data, setData] = useState<LiveMatchResponse | null>(null);
   const [outcomes, setOutcomes] = useState<Outcomes | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(null);
   const [error, setError] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -636,16 +750,34 @@ const LiveMatch = () => {
       .finally(() => setIsRefreshing(false));
   }, []);
 
-  const loadOdds = useCallback((home: string, away: string) => {
-    const query = `home=${encodeURIComponent(home)}&away=${encodeURIComponent(away)}`;
-    clientRef
-      .current!.get<MatchOddsResponse>(`/s/match-odds?${query}`)
-      .then((response) => setOutcomes(response.found ? response.outcomes ?? null : null))
-      .catch(() => setOutcomes(null));
-  }, []);
+  const loadOdds = useCallback(
+    (home: string, away: string, homeScore: number | null, awayScore: number | null) => {
+      const params = [`home=${encodeURIComponent(home)}`, `away=${encodeURIComponent(away)}`];
+      if (homeScore !== null) {
+        params.push(`homeScore=${homeScore}`);
+      }
+      if (awayScore !== null) {
+        params.push(`awayScore=${awayScore}`);
+      }
+      clientRef
+        .current!.get<MatchOddsResponse>(`/s/match-odds?${params.join('&')}`)
+        .then((response) => {
+          setOutcomes(response.found ? response.outcomes ?? null : null);
+          setLeaderboard(response.found ? response.provisionalLeaderboard ?? null : null);
+        })
+        .catch(() => {
+          setOutcomes(null);
+          setLeaderboard(null);
+        });
+    },
+    [],
+  );
 
   const isRunning = data?.state === 'LIVE' || data?.state === 'HALF_TIME';
-  const matchKey = data?.found && data.home && data.away ? `${data.home}|${data.away}` : null;
+  const matchKey =
+    data?.found && data.home && data.away
+      ? `${data.home}|${data.away}|${data.homeScore ?? ''}|${data.awayScore ?? ''}`
+      : null;
 
   useEffect(() => {
     loadLive();
@@ -659,9 +791,10 @@ const LiveMatch = () => {
 
   useEffect(() => {
     if (data?.found && data.home && data.away) {
-      loadOdds(data.home, data.away);
+      loadOdds(data.home, data.away, data.homeScore ?? null, data.awayScore ?? null);
     } else {
       setOutcomes(null);
+      setLeaderboard(null);
     }
   }, [matchKey, loadOdds]);
 
@@ -673,7 +806,7 @@ const LiveMatch = () => {
   const refresh = useCallback(() => {
     loadLive();
     if (data?.found && data.home && data.away) {
-      loadOdds(data.home, data.away);
+      loadOdds(data.home, data.away, data.homeScore ?? null, data.awayScore ?? null);
     }
   }, [loadLive, loadOdds, data]);
 
@@ -693,6 +826,7 @@ const LiveMatch = () => {
     <Scoreboard
       data={data}
       outcomes={outcomes}
+      leaderboard={leaderboard}
       footer={
         <RefreshFooter
           lastRefreshedAt={lastRefreshedAt}

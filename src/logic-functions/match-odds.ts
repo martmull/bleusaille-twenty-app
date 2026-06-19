@@ -55,9 +55,17 @@ type Outcomes = {
   away: OutcomeBets;
 };
 
+type LeaderboardEntry = {
+  name: string;
+  newPuntos: number;
+  newRank: number;
+  rankDelta: number;
+};
+
 type MatchOddsResponse = {
   found: boolean;
   outcomes?: Outcomes;
+  provisionalLeaderboard?: LeaderboardEntry[];
 };
 
 type RankTotals = Map<string, { firstName: string; total: number }>;
@@ -71,7 +79,55 @@ const computeRanks = (totals: RankTotals): Map<string, number> => {
   return ranks;
 };
 
-const fetchOutcomes = async (home: string, away: string): Promise<Outcomes | undefined> => {
+const outcomeFromScore = (homeScore: number, awayScore: number): BetValue =>
+  homeScore > awayScore
+    ? BetValue.HOME_WIN
+    : homeScore < awayScore
+      ? BetValue.AWAY_WIN
+      : BetValue.NULL_OR_DRAW;
+
+const buildLeaderboard = (
+  winningOutcome: BetValue,
+  baseTotals: RankTotals,
+  currentRanks: Map<string, number>,
+  matchBets: BetRecord[],
+  pot: number,
+): LeaderboardEntry[] => {
+  const winnerBets = matchBets.filter((bet) => bet.betValue === winningOutcome);
+  const payout = winnerBets.length > 0 ? Math.round(pot / winnerBets.length) : 0;
+
+  const scenarioTotals: RankTotals = new Map(
+    [...baseTotals].map(([id, value]) => [id, { ...value }]),
+  );
+  for (const bet of winnerBets) {
+    const id = bet.person?.id;
+    const entry = id ? scenarioTotals.get(id) : undefined;
+    if (entry) {
+      entry.total += payout;
+    }
+  }
+  const scenarioRanks = computeRanks(scenarioTotals);
+
+  return [...scenarioTotals.entries()]
+    .map(([id, value]): LeaderboardEntry => {
+      const currentRank = currentRanks.get(id) ?? 0;
+      const newRank = scenarioRanks.get(id) ?? currentRank;
+      return {
+        name: value.firstName,
+        newPuntos: value.total,
+        newRank,
+        rankDelta: currentRank - newRank,
+      };
+    })
+    .sort((a, b) => a.newRank - b.newRank);
+};
+
+const fetchOutcomes = async (
+  home: string,
+  away: string,
+  homeScore: number | null,
+  awayScore: number | null,
+): Promise<{ outcomes: Outcomes; provisionalLeaderboard?: LeaderboardEntry[] } | undefined> => {
   const livePairKey = teamPairKey(home, away);
 
   const client = createCoreApiClient();
@@ -228,11 +284,32 @@ const fetchOutcomes = async (home: string, away: string): Promise<Outcomes | und
     };
   };
 
-  return {
+  const outcomes: Outcomes = {
     home: buildOutcome(BetValue.HOME_WIN),
     draw: buildOutcome(BetValue.NULL_OR_DRAW),
     away: buildOutcome(BetValue.AWAY_WIN),
   };
+
+  const provisionalLeaderboard =
+    homeScore !== null && awayScore !== null
+      ? buildLeaderboard(
+          outcomeFromScore(homeScore, awayScore),
+          baseTotals,
+          currentRanks,
+          matchBets,
+          pot,
+        )
+      : undefined;
+
+  return { outcomes, provisionalLeaderboard };
+};
+
+const parseScore = (value: string | undefined): number | null => {
+  if (!value) {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
 const handler = async (event: RoutePayload): Promise<MatchOddsResponse> => {
@@ -243,13 +320,22 @@ const handler = async (event: RoutePayload): Promise<MatchOddsResponse> => {
     return { found: false };
   }
 
-  const outcomes = await fetchOutcomes(home, away);
+  const result = await fetchOutcomes(
+    home,
+    away,
+    parseScore(event.queryStringParameters?.homeScore),
+    parseScore(event.queryStringParameters?.awayScore),
+  );
 
-  if (!outcomes) {
+  if (!result) {
     return { found: false };
   }
 
-  return { found: true, outcomes };
+  return {
+    found: true,
+    outcomes: result.outcomes,
+    provisionalLeaderboard: result.provisionalLeaderboard,
+  };
 };
 
 export default defineLogicFunction({
