@@ -1,4 +1,5 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
+import { CoreApiClient } from 'twenty-client-sdk/core';
 
 import { createCoreApiClient } from 'src/logic-functions/shared/api';
 import { fetchExternalData } from 'src/logic-functions/shared/external-data';
@@ -17,9 +18,7 @@ import { updateMatchQuotes } from 'src/logic-functions/shared/steps/update-match
 import { updateMatchBreakeven } from 'src/logic-functions/shared/steps/update-match-breakeven.step';
 import { updateWinnings } from 'src/logic-functions/shared/steps/update-winnings.step';
 
-const handler = async () => {
-  const client = createCoreApiClient();
-
+export const runSynchronize = async (client: CoreApiClient = createCoreApiClient()) => {
   console.log('[synchronize] starting pipeline');
 
   console.log('[synchronize] fetching external data in parallel');
@@ -104,6 +103,8 @@ const handler = async () => {
     updateBetEv: updateBetEvResult,
   };
 };
+
+const handler = async () => runSynchronize();
 
 export default defineLogicFunction({
   universalIdentifier: 'f21599f0-1fad-427a-a5fe-4e1fd2a1be1a',
