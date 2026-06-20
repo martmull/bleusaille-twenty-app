@@ -737,6 +737,8 @@ const LiveMatch = () => {
     clientRef.current = new RestApiClient();
   }
 
+  const dataRef = useRef<LiveMatchResponse | null>(null);
+
   const loadLive = useCallback(() => {
     setIsRefreshing(true);
     clientRef
@@ -784,10 +786,22 @@ const LiveMatch = () => {
   }, [loadLive]);
 
   useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
+  useEffect(() => {
     const intervalMs = isRunning ? LIVE_POLL_INTERVAL_MS : IDLE_POLL_INTERVAL_MS;
-    const interval = setInterval(loadLive, intervalMs);
+    const interval = setInterval(() => {
+      loadLive();
+      if (isRunning) {
+        const current = dataRef.current;
+        if (current?.found && current.home && current.away) {
+          loadOdds(current.home, current.away, current.homeScore ?? null, current.awayScore ?? null);
+        }
+      }
+    }, intervalMs);
     return () => clearInterval(interval);
-  }, [isRunning, loadLive]);
+  }, [isRunning, loadLive, loadOdds]);
 
   useEffect(() => {
     if (data?.found && data.home && data.away) {
