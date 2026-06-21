@@ -9,6 +9,8 @@ export const FINISHED_MATCHES_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER =
 type Winner = {
   name: string;
   totalPuntos: number;
+  newRank: number;
+  rankDelta: number;
 };
 
 type FinishedMatch = {
@@ -31,6 +33,8 @@ type Theme = {
   textPrimary: string;
   heading: string;
   muted: string;
+  positive: string;
+  negative: string;
   goldChipBackground: string;
   goldChipBorder: string;
   goldChipText: string;
@@ -54,6 +58,8 @@ const getTheme = (scheme: 'light' | 'dark'): Theme =>
         textPrimary: '#ececf1',
         heading: '#c9bff0',
         muted: '#9a98a8',
+        positive: '#4ade80',
+        negative: '#f87171',
         goldChipBackground: 'linear-gradient(180deg, #4a3c18 0%, #5e4b1f 100%)',
         goldChipBorder: '#7c6526',
         goldChipText: '#ffd98a',
@@ -74,6 +80,8 @@ const getTheme = (scheme: 'light' | 'dark'): Theme =>
         textPrimary: '#1a1a1a',
         heading: '#3a2f63',
         muted: '#9ca3af',
+        positive: '#15803d',
+        negative: '#dc2626',
         goldChipBackground: 'linear-gradient(180deg, #fff6da 0%, #ffe9a8 100%)',
         goldChipBorder: '#f5d77a',
         goldChipText: '#7c5a12',
@@ -107,9 +115,14 @@ const KEYFRAMES = `
 const FONT =
   'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
+const formatRankDelta = (delta: number): string =>
+  delta > 0 ? `+${delta}` : delta < 0 ? `${delta}` : '=';
+
 const WinnerChip = ({ winner, index }: { winner: Winner; index: number }) => {
   const theme = getTheme(useColorScheme());
   const [hovered, setHovered] = useState(false);
+  const deltaColor =
+    winner.rankDelta > 0 ? theme.positive : winner.rankDelta < 0 ? theme.negative : theme.muted;
 
   return (
     <span
@@ -117,7 +130,9 @@ const WinnerChip = ({ winner, index }: { winner: Winner; index: number }) => {
       onMouseLeave={() => setHovered(false)}
       style={{
         position: 'relative',
-        display: 'inline-block',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
         padding: '2px 8px',
         borderRadius: '999px',
         background: theme.goldChipBackground,
@@ -129,7 +144,9 @@ const WinnerChip = ({ winner, index }: { winner: Winner; index: number }) => {
         animation: `fm-pop 0.35s ${0.05 * index}s both`,
       }}
     >
-      {winner.name}
+      <span>{winner.name}</span>
+      <span style={{ opacity: 0.75 }}>#{winner.newRank}</span>
+      <span style={{ color: deltaColor, fontWeight: 800 }}>{formatRankDelta(winner.rankDelta)}</span>
       {hovered ? (
         <span
           style={{

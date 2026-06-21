@@ -13,14 +13,29 @@ type MatchRecord = {
 
 type WinningBetRecord = {
   puntos: number | null;
-  person: { name: { firstName: string | null } | null; puntos: number | null } | null;
+  person: { id: string | null; name: { firstName: string | null } | null; puntos: number | null } | null;
   match: { id: string | null } | null;
+};
+
+type EvolutionRecord = {
+  matchEndDate: string | null;
+  points: number | null;
+  person: { id: string | null } | null;
+};
+
+type PersonRecord = {
+  id: string;
+  name: { firstName: string | null } | null;
 };
 
 type Winner = {
   name: string;
   totalPuntos: number;
+  newRank: number;
+  rankDelta: number;
 };
+
+type RankTotals = Map<string, { firstName: string; total: number }>;
 
 type FinishedMatch = {
   home: string;
@@ -34,7 +49,7 @@ type FinishedMatch = {
 const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
   const client = createCoreApiClient();
 
-  const [matches, winningBets] = await Promise.all([
+  const [matches, winningBets, evolutions, people] = await Promise.all([
     fetchAllPages<MatchRecord>(async (after) => {
       const { matches: page } = await client.query({
         matches: {
@@ -61,7 +76,7 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
           edges: {
             node: {
               puntos: true,
-              person: { name: { firstName: true }, puntos: true },
+              person: { id: true, name: { firstName: true }, puntos: true },
               match: { id: true },
             },
           },
@@ -70,20 +85,85 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
       });
       return page;
     }),
+    fetchAllPages<EvolutionRecord>(async (after) => {
+      const { puntosEvolutions: page } = await client.query({
+        puntosEvolutions: {
+          __args: { first: PAGE_SIZE, after },
+          edges: {
+            node: {
+              matchEndDate: true,
+              points: true,
+              person: { id: true },
+            },
+          },
+          pageInfo: { hasNextPage: true, endCursor: true },
+        },
+      });
+      return page;
+    }),
+    fetchAllPages<PersonRecord>(async (after) => {
+      const { people: page } = await client.query({
+        people: {
+          __args: { first: PAGE_SIZE, after },
+          edges: { node: { id: true, name: { firstName: true } } },
+          pageInfo: { hasNextPage: true, endCursor: true },
+        },
+      });
+      return page;
+    }),
   ]);
 
-  const winnersByMatch = new Map<string, { winners: Winner[]; puntos: number }>();
+  type RawWinner = { name: string; totalPuntos: number; personId: string };
+
+  const winnersByMatch = new Map<string, { winners: RawWinner[]; puntos: number }>();
   for (const bet of winningBets) {
     const matchId = bet.match?.id;
     const name = bet.person?.name?.firstName;
-    if (!matchId || !name) {
+    const personId = bet.person?.id;
+    if (!matchId || !name || !personId) {
       continue;
     }
     const entry = winnersByMatch.get(matchId) ?? { winners: [], puntos: 0 };
-    entry.winners.push({ name, totalPuntos: bet.person?.puntos ?? 0 });
+    entry.winners.push({ name, totalPuntos: bet.person?.puntos ?? 0, personId });
     entry.puntos = Math.max(entry.puntos, bet.puntos ?? 0);
     winnersByMatch.set(matchId, entry);
   }
+
+  const firstNameById = new Map<string, string>();
+  for (const person of people) {
+    const firstName = person.name?.firstName;
+    if (person.id && firstName) {
+      firstNameById.set(person.id, firstName);
+    }
+  }
+
+  const computeRanks = (totals: RankTotals): Map<string, number> => {
+    const sorted = [...totals.entries()].sort(
+      (a, b) => b[1].total - a[1].total || a[1].firstName.localeCompare(b[1].firstName),
+    );
+    const ranks = new Map<string, number>();
+    sorted.forEach(([id], index) => ranks.set(id, index + 1));
+    return ranks;
+  };
+
+  const rankMapAt = (cutoff: number, inclusive: boolean): Map<string, number> => {
+    const totals: RankTotals = new Map();
+    for (const [id, firstName] of firstNameById) {
+      totals.set(id, { firstName, total: 0 });
+    }
+    for (const evolution of evolutions) {
+      const id = evolution.person?.id;
+      const entry = id ? totals.get(id) : undefined;
+      if (!entry) {
+        continue;
+      }
+      const endDate = new Date(evolution.matchEndDate ?? 0).getTime();
+      if (inclusive ? endDate <= cutoff : endDate < cutoff) {
+        entry.total += evolution.points ?? 0;
+      }
+    }
+    return computeRanks(totals);
+  };
 
   const finished = matches
     .filter((match) => match.result && match.home && match.away)
@@ -91,15 +171,36 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
       (a, b) =>
         new Date(b.endDate ?? 0).getTime() - new Date(a.endDate ?? 0).getTime(),
     )
-    .map((match) => {
-      const winners = winnersByMatch.get(match.id);
+    .map((match): FinishedMatch => {
+      const entry = winnersByMatch.get(match.id);
+      const rawWinners = entry?.winners ?? [];
+
+      let winners: Winner[] = [];
+      if (rawWinners.length > 0) {
+        const matchEnd = new Date(match.endDate ?? 0).getTime();
+        const afterRanks = rankMapAt(matchEnd, true);
+        const beforeRanks = rankMapAt(matchEnd, false);
+        winners = rawWinners
+          .map((winner): Winner => {
+            const newRank = afterRanks.get(winner.personId) ?? 0;
+            const beforeRank = beforeRanks.get(winner.personId) ?? newRank;
+            return {
+              name: winner.name,
+              totalPuntos: winner.totalPuntos,
+              newRank,
+              rankDelta: beforeRank - newRank,
+            };
+          })
+          .sort((a, b) => a.name.localeCompare(b.name));
+      }
+
       return {
         home: match.home as string,
         away: match.away as string,
         score: match.score ?? '',
         endDate: match.endDate,
-        puntos: winners?.puntos ?? 0,
-        winners: (winners?.winners ?? []).sort((a, b) => a.name.localeCompare(b.name)),
+        puntos: entry?.puntos ?? 0,
+        winners,
       };
     });
 
