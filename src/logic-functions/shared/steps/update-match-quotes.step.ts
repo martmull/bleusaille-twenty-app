@@ -14,13 +14,13 @@ type MatchRecord = {
   home: string | null;
   away: string | null;
   startDate: string | null;
+  score: string | null;
   homeQuote: number | null;
   drawQuote: number | null;
   awayQuote: number | null;
   prematchHomeCote: number | null;
   prematchDrawCote: number | null;
   prematchAwayCote: number | null;
-  result: string | null;
 };
 
 export type UpdateMatchQuotesResult = {
@@ -45,13 +45,13 @@ export const updateMatchQuotes = async (
               home: true,
               away: true,
               startDate: true,
+              score: true,
               homeQuote: true,
               drawQuote: true,
               awayQuote: true,
               prematchHomeCote: true,
               prematchDrawCote: true,
               prematchAwayCote: true,
-              result: true,
             },
           },
           pageInfo: { hasNextPage: true, endCursor: true },
@@ -77,12 +77,10 @@ export const updateMatchQuotes = async (
   const now = Date.now();
 
   for (const match of matches) {
-    if (match.result) {
-      continue;
-    }
+    const hasScore = Boolean(match.score);
 
     const chance =
-      match.home && match.away
+      !hasScore && match.home && match.away
         ? chancesByPair.get(teamPairKey(match.home, match.away))
         : undefined;
 
