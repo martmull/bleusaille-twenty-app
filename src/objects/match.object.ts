@@ -13,9 +13,15 @@ export const MATCH_TYPE_FIELD_UNIVERSAL_IDENTIFIER = '53a81618-09c7-491b-9c24-27
 export const MATCH_HOME_QUOTE_FIELD_UNIVERSAL_IDENTIFIER = '41ba7899-3d4c-462e-bc63-30fbb20f0995';
 export const MATCH_DRAW_QUOTE_FIELD_UNIVERSAL_IDENTIFIER = 'dda5fee5-2074-483a-8c1e-849b37910d70';
 export const MATCH_AWAY_QUOTE_FIELD_UNIVERSAL_IDENTIFIER = '44e3ab6e-624d-4c5c-a6ad-5e7dbcad97f1';
+export const MATCH_PREMATCH_HOME_QUOTE_FIELD_UNIVERSAL_IDENTIFIER = 'b096d6d3-f06c-48f3-aa07-7793674cc525';
+export const MATCH_PREMATCH_DRAW_QUOTE_FIELD_UNIVERSAL_IDENTIFIER = 'b0895614-f455-4f13-ae88-a7c5a9123309';
+export const MATCH_PREMATCH_AWAY_QUOTE_FIELD_UNIVERSAL_IDENTIFIER = '591e26b3-3e8f-440b-ab30-df4feabccfdb';
 export const MATCH_HOME_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER = '1849bd3f-22be-43c6-a805-ca1d31002de1';
 export const MATCH_DRAW_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER = 'd75bd023-597c-4f8b-83b8-10298051852a';
 export const MATCH_AWAY_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER = 'c94e581a-78bb-447c-b11a-1b71ab331010';
+export const MATCH_PREMATCH_HOME_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER = '43d9aa1e-2215-4101-9a79-1b83465b2e0d';
+export const MATCH_PREMATCH_DRAW_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER = '7ff2ce7e-b023-4860-ba56-b49d80f5fba3';
+export const MATCH_PREMATCH_AWAY_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER = '687ccec2-87c1-4e32-9ac3-b96e40632282';
 
 export enum MatchResult {
   HOME_WIN = 'HOME_WIN',
@@ -192,7 +198,7 @@ export default defineObject({
       universalIdentifier: MATCH_HOME_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
       type: FieldType.NUMBER,
       name: 'homeQuote',
-      label: 'Home Quote',
+      label: 'Home Cote',
       description: 'Live decimal odds for a home win (only for upcoming matches of the day)',
       icon: 'IconHome',
       isNullable: true,
@@ -202,7 +208,7 @@ export default defineObject({
       universalIdentifier: MATCH_DRAW_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
       type: FieldType.NUMBER,
       name: 'drawQuote',
-      label: 'Draw Quote',
+      label: 'Draw Cote',
       description: 'Live decimal odds for a draw (only for upcoming matches of the day)',
       icon: 'IconEqual',
       isNullable: true,
@@ -212,8 +218,38 @@ export default defineObject({
       universalIdentifier: MATCH_AWAY_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
       type: FieldType.NUMBER,
       name: 'awayQuote',
-      label: 'Away Quote',
+      label: 'Away Cote',
       description: 'Live decimal odds for an away win (only for upcoming matches of the day)',
+      icon: 'IconPlaneDeparture',
+      isNullable: true,
+      defaultValue: null,
+    },
+    {
+      universalIdentifier: MATCH_PREMATCH_HOME_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
+      type: FieldType.NUMBER,
+      name: 'prematchHomeCote',
+      label: 'Prematch Home Cote',
+      description: 'Last decimal odds for a home win persisted before the match started',
+      icon: 'IconHome',
+      isNullable: true,
+      defaultValue: null,
+    },
+    {
+      universalIdentifier: MATCH_PREMATCH_DRAW_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
+      type: FieldType.NUMBER,
+      name: 'prematchDrawCote',
+      label: 'Prematch Draw Cote',
+      description: 'Last decimal odds for a draw persisted before the match started',
+      icon: 'IconEqual',
+      isNullable: true,
+      defaultValue: null,
+    },
+    {
+      universalIdentifier: MATCH_PREMATCH_AWAY_QUOTE_FIELD_UNIVERSAL_IDENTIFIER,
+      type: FieldType.NUMBER,
+      name: 'prematchAwayCote',
+      label: 'Prematch Away Cote',
+      description: 'Last decimal odds for an away win persisted before the match started',
       icon: 'IconPlaneDeparture',
       isNullable: true,
       defaultValue: null,
@@ -247,6 +283,36 @@ export default defineObject({
       label: 'Away Breakeven',
       description:
         'Max bettors on an away win before the local pool quote (total bets / bettors on away) drops below the live away quote',
+      icon: 'IconPlaneDeparture',
+      isNullable: true,
+      defaultValue: null,
+    },
+    {
+      universalIdentifier: MATCH_PREMATCH_HOME_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER,
+      type: FieldType.NUMBER,
+      name: 'prematchHomeBreakeven',
+      label: 'Prematch Home Breakeven',
+      description: 'Last home-win breakeven persisted before the match started',
+      icon: 'IconHome',
+      isNullable: true,
+      defaultValue: null,
+    },
+    {
+      universalIdentifier: MATCH_PREMATCH_DRAW_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER,
+      type: FieldType.NUMBER,
+      name: 'prematchDrawBreakeven',
+      label: 'Prematch Draw Breakeven',
+      description: 'Last draw breakeven persisted before the match started',
+      icon: 'IconEqual',
+      isNullable: true,
+      defaultValue: null,
+    },
+    {
+      universalIdentifier: MATCH_PREMATCH_AWAY_BREAKEVEN_FIELD_UNIVERSAL_IDENTIFIER,
+      type: FieldType.NUMBER,
+      name: 'prematchAwayBreakeven',
+      label: 'Prematch Away Breakeven',
+      description: 'Last away-win breakeven persisted before the match started',
       icon: 'IconPlaneDeparture',
       isNullable: true,
       defaultValue: null,

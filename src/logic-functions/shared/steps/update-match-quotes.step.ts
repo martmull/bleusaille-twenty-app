@@ -13,9 +13,13 @@ type MatchRecord = {
   id: string;
   home: string | null;
   away: string | null;
+  startDate: string | null;
   homeQuote: number | null;
   drawQuote: number | null;
   awayQuote: number | null;
+  prematchHomeCote: number | null;
+  prematchDrawCote: number | null;
+  prematchAwayCote: number | null;
   result: string | null;
 };
 
@@ -40,9 +44,13 @@ export const updateMatchQuotes = async (
               id: true,
               home: true,
               away: true,
+              startDate: true,
               homeQuote: true,
               drawQuote: true,
               awayQuote: true,
+              prematchHomeCote: true,
+              prematchDrawCote: true,
+              prematchAwayCote: true,
               result: true,
             },
           },
@@ -55,9 +63,18 @@ export const updateMatchQuotes = async (
 
   const updates: Array<{
     id: string;
-    data: { homeQuote: number | null; drawQuote: number | null; awayQuote: number | null };
+    data: {
+      homeQuote: number | null;
+      drawQuote: number | null;
+      awayQuote: number | null;
+      prematchHomeCote?: number | null;
+      prematchDrawCote?: number | null;
+      prematchAwayCote?: number | null;
+    };
   }> = [];
   let withQuotes = 0;
+
+  const now = Date.now();
 
   for (const match of matches) {
     if (match.result) {
@@ -83,15 +100,38 @@ export const updateMatchQuotes = async (
       withQuotes += 1;
     }
 
-    if (
-      match.homeQuote === homeQuote &&
-      match.drawQuote === drawQuote &&
-      match.awayQuote === awayQuote
-    ) {
+    const isUpcoming = match.startDate ? new Date(match.startDate).getTime() > now : false;
+
+    const prematchChanged =
+      isUpcoming &&
+      (match.prematchHomeCote !== homeQuote ||
+        match.prematchDrawCote !== drawQuote ||
+        match.prematchAwayCote !== awayQuote);
+
+    const quotesChanged =
+      match.homeQuote !== homeQuote ||
+      match.drawQuote !== drawQuote ||
+      match.awayQuote !== awayQuote;
+
+    if (!quotesChanged && !prematchChanged) {
       continue;
     }
 
-    updates.push({ id: match.id, data: { homeQuote, drawQuote, awayQuote } });
+    updates.push({
+      id: match.id,
+      data: {
+        homeQuote,
+        drawQuote,
+        awayQuote,
+        ...(isUpcoming
+          ? {
+              prematchHomeCote: homeQuote,
+              prematchDrawCote: drawQuote,
+              prematchAwayCote: awayQuote,
+            }
+          : {}),
+      },
+    });
   }
 
   const updated = await applyGroupedUpdates(updates, (ids, data) =>
