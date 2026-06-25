@@ -35,16 +35,20 @@ type Outcomes = {
 
 type OutcomeKey = 'home' | 'draw' | 'away';
 
-type LiveMatchResponse = {
-  found: boolean;
-  state?: LiveMatchState;
-  home?: string;
-  away?: string;
-  homeScore?: number | null;
-  awayScore?: number | null;
+type LiveMatchEntry = {
+  state: LiveMatchState;
+  home: string;
+  away: string;
+  homeScore: number | null;
+  awayScore: number | null;
   startDate?: string;
   stageLabel?: string;
   dataSource?: 'sportscore' | 'football-data';
+};
+
+type LiveMatchResponse = {
+  found: boolean;
+  matches: LiveMatchEntry[];
 };
 
 type LeaderboardEntry = {
@@ -256,7 +260,7 @@ const RefreshFooter = ({
   );
 };
 
-const StatusBadge = ({ data }: { data: LiveMatchResponse }) => {
+const StatusBadge = ({ data }: { data: LiveMatchEntry }) => {
   const theme = getTheme(useColorScheme());
 
   if (data.state === 'UPCOMING') {
@@ -584,16 +588,14 @@ const LeaderboardColumn = ({ entries }: { entries: LeaderboardEntry[] }) => {
   );
 };
 
-const Scoreboard = ({
+const MatchCard = ({
   data,
   outcomes,
   leaderboard,
-  footer,
 }: {
-  data: LiveMatchResponse;
+  data: LiveMatchEntry;
   outcomes: Outcomes | null;
   leaderboard: LeaderboardEntry[] | null;
-  footer: React.ReactNode;
 }) => {
   const theme = getTheme(useColorScheme());
   const isUpcoming = data.state === 'UPCOMING';
@@ -602,19 +604,13 @@ const Scoreboard = ({
   return (
     <div
       style={{
-        position: 'relative',
+        flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
-        height: '100%',
         width: '100%',
         boxSizing: 'border-box',
-        padding: '16px 20px',
-        overflowY: 'auto',
-        background: theme.surface,
-        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
       }}
     >
-      <style>{KEYFRAMES}</style>
       <div
         style={{
           flexShrink: 0,
@@ -694,7 +690,6 @@ const Scoreboard = ({
           </>
         ) : null}
       </div>
-      {footer}
     </div>
   );
 };
@@ -723,10 +718,17 @@ const Centered = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+type OddsEntry = { outcomes: Outcomes | null; leaderboard: LeaderboardEntry[] | null };
+
+const isRunningEntry = (entry: LiveMatchEntry): boolean =>
+  entry.state === 'LIVE' || entry.state === 'HALF_TIME';
+
+const oddsKey = (entry: LiveMatchEntry): string => `${entry.home}|${entry.away}`;
+
 const LiveMatch = () => {
+  const theme = getTheme(useColorScheme());
   const [data, setData] = useState<LiveMatchResponse | null>(null);
-  const [outcomes, setOutcomes] = useState<Outcomes | null>(null);
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(null);
+  const [oddsByKey, setOddsByKey] = useState<Record<string, OddsEntry>>({});
   const [error, setError] = useState(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -752,34 +754,52 @@ const LiveMatch = () => {
       .finally(() => setIsRefreshing(false));
   }, []);
 
-  const loadOdds = useCallback(
-    (home: string, away: string, homeScore: number | null, awayScore: number | null) => {
-      const params = [`home=${encodeURIComponent(home)}`, `away=${encodeURIComponent(away)}`];
-      if (homeScore !== null) {
-        params.push(`homeScore=${homeScore}`);
-      }
-      if (awayScore !== null) {
-        params.push(`awayScore=${awayScore}`);
-      }
-      clientRef
-        .current!.get<MatchOddsResponse>(`/s/match-odds?${params.join('&')}`)
-        .then((response) => {
-          setOutcomes(response.found ? response.outcomes ?? null : null);
-          setLeaderboard(response.found ? response.provisionalLeaderboard ?? null : null);
-        })
-        .catch(() => {
-          setOutcomes(null);
-          setLeaderboard(null);
-        });
-    },
-    [],
-  );
+  const loadOdds = useCallback((entry: LiveMatchEntry) => {
+    const params = [
+      `home=${encodeURIComponent(entry.home)}`,
+      `away=${encodeURIComponent(entry.away)}`,
+    ];
+    if (entry.homeScore !== null) {
+      params.push(`homeScore=${entry.homeScore}`);
+    }
+    if (entry.awayScore !== null) {
+      params.push(`awayScore=${entry.awayScore}`);
+    }
+    clientRef
+      .current!.get<MatchOddsResponse>(`/s/match-odds?${params.join('&')}`)
+      .then((response) => {
+        setOddsByKey((prev) => ({
+          ...prev,
+          [oddsKey(entry)]: {
+            outcomes: response.found ? response.outcomes ?? null : null,
+            leaderboard: response.found ? response.provisionalLeaderboard ?? null : null,
+          },
+        }));
+      })
+      .catch(() => {
+        setOddsByKey((prev) => ({
+          ...prev,
+          [oddsKey(entry)]: { outcomes: null, leaderboard: null },
+        }));
+      });
+  }, []);
 
-  const isRunning = data?.state === 'LIVE' || data?.state === 'HALF_TIME';
-  const matchKey =
-    data?.found && data.home && data.away
-      ? `${data.home}|${data.away}|${data.homeScore ?? ''}|${data.awayScore ?? ''}`
-      : null;
+  const loadAllOdds = useCallback(() => {
+    const current = dataRef.current;
+    if (!current?.found) {
+      return;
+    }
+    current.matches.filter(isRunningEntry).forEach(loadOdds);
+  }, [loadOdds]);
+
+  const isRunning = data?.found === true && data.matches.some(isRunningEntry);
+  const runningSignature =
+    data?.found === true
+      ? data.matches
+          .filter(isRunningEntry)
+          .map((match) => `${match.home}|${match.away}|${match.homeScore ?? ''}|${match.awayScore ?? ''}`)
+          .join(';')
+      : '';
 
   useEffect(() => {
     loadLive();
@@ -794,23 +814,31 @@ const LiveMatch = () => {
     const interval = setInterval(() => {
       loadLive();
       if (isRunning) {
-        const current = dataRef.current;
-        if (current?.found && current.home && current.away) {
-          loadOdds(current.home, current.away, current.homeScore ?? null, current.awayScore ?? null);
-        }
+        loadAllOdds();
       }
     }, intervalMs);
     return () => clearInterval(interval);
-  }, [isRunning, loadLive, loadOdds]);
+  }, [isRunning, loadLive, loadAllOdds]);
 
   useEffect(() => {
-    if (data?.found && data.home && data.away) {
-      loadOdds(data.home, data.away, data.homeScore ?? null, data.awayScore ?? null);
-    } else {
-      setOutcomes(null);
-      setLeaderboard(null);
+    const current = dataRef.current;
+    if (!current?.found) {
+      setOddsByKey({});
+      return;
     }
-  }, [matchKey, loadOdds]);
+    const running = current.matches.filter(isRunningEntry);
+    running.forEach(loadOdds);
+    const liveKeys = new Set(running.map(oddsKey));
+    setOddsByKey((prev) => {
+      const next: Record<string, OddsEntry> = {};
+      for (const key of Object.keys(prev)) {
+        if (liveKeys.has(key)) {
+          next[key] = prev[key];
+        }
+      }
+      return next;
+    });
+  }, [runningSignature, loadOdds]);
 
   useEffect(() => {
     const ticker = setInterval(() => setNow(Date.now()), 1000);
@@ -819,10 +847,8 @@ const LiveMatch = () => {
 
   const refresh = useCallback(() => {
     loadLive();
-    if (data?.found && data.home && data.away) {
-      loadOdds(data.home, data.away, data.homeScore ?? null, data.awayScore ?? null);
-    }
-  }, [loadLive, loadOdds, data]);
+    loadAllOdds();
+  }, [loadLive, loadAllOdds]);
 
   if (error && !data) {
     return <Centered>Score indisponible</Centered>;
@@ -832,26 +858,54 @@ const LiveMatch = () => {
     return <Centered>…</Centered>;
   }
 
-  if (!data.found) {
+  if (!data.found || data.matches.length === 0) {
     return <Centered>Aucun match</Centered>;
   }
 
+  const dataSources = Array.from(
+    new Set(data.matches.map((match) => match.dataSource).filter(Boolean)),
+  );
+  const footerDataSource =
+    dataSources.length === 1 ? (dataSources[0] as 'sportscore' | 'football-data') : undefined;
+
   return (
-    <Scoreboard
-      data={data}
-      outcomes={outcomes}
-      leaderboard={leaderboard}
-      footer={
-        <RefreshFooter
-          lastRefreshedAt={lastRefreshedAt}
-          now={now}
-          onRefresh={refresh}
-          isRefreshing={isRefreshing}
-          stale={error}
-          dataSource={data.dataSource}
-        />
-      }
-    />
+    <div
+      style={{
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        width: '100%',
+        boxSizing: 'border-box',
+        padding: '16px 20px',
+        gap: '20px',
+        overflowY: 'auto',
+        background: theme.surface,
+        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      }}
+    >
+      <style>{KEYFRAMES}</style>
+      {data.matches.map((match, index) => (
+        <Fragment key={oddsKey(match)}>
+          {index > 0 ? (
+            <div style={{ flexShrink: 0, height: '1px', background: theme.border }} />
+          ) : null}
+          <MatchCard
+            data={match}
+            outcomes={oddsByKey[oddsKey(match)]?.outcomes ?? null}
+            leaderboard={oddsByKey[oddsKey(match)]?.leaderboard ?? null}
+          />
+        </Fragment>
+      ))}
+      <RefreshFooter
+        lastRefreshedAt={lastRefreshedAt}
+        now={now}
+        onRefresh={refresh}
+        isRefreshing={isRefreshing}
+        stale={error}
+        dataSource={footerDataSource}
+      />
+    </div>
   );
 };
 

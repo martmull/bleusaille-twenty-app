@@ -35,16 +35,20 @@ type LiveScore = {
   dataSource: LiveMatchDataSource;
 };
 
+type LiveMatchEntry = {
+  state: LiveMatchState;
+  home: string;
+  away: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  startDate?: string;
+  stageLabel: string;
+  dataSource?: LiveMatchDataSource;
+};
+
 type LiveMatchResponse = {
   found: boolean;
-  state?: LiveMatchState;
-  home?: string;
-  away?: string;
-  homeScore?: number | null;
-  awayScore?: number | null;
-  startDate?: string;
-  stageLabel?: string;
-  dataSource?: LiveMatchDataSource;
+  matches: LiveMatchEntry[];
 };
 
 const IN_PROGRESS_STATUSES = new Set(['IN_PLAY', 'PAUSED']);
@@ -116,12 +120,11 @@ const fetchLiveScore = async (home: string, away: string): Promise<LiveScore | n
   return fetchFootballDataLive(home, away);
 };
 
-const buildLiveResponse = (
+const buildLiveEntry = (
   match: MatchRecord,
   state: LiveMatchState,
   live: LiveScore | null,
-): LiveMatchResponse => ({
-  found: true,
+): LiveMatchEntry => ({
   state,
   home: match.home ?? '',
   away: match.away ?? '',
@@ -132,34 +135,36 @@ const buildLiveResponse = (
   dataSource: live?.dataSource,
 });
 
-const resolveLiveMatch = async (
+const resolveLiveMatches = async (
   matches: MatchRecord[],
   nowMs: number,
-): Promise<LiveMatchResponse | null> => {
-  const candidate = matches
+): Promise<LiveMatchEntry[]> => {
+  const candidates = matches
     .filter((match) => match.home && match.away && match.startDate)
     .filter((match) => {
       const startMs = new Date(match.startDate!).getTime();
       return startMs <= nowMs && nowMs - startMs <= LIVE_LOOKBACK_MS;
     })
-    .sort((a, b) => new Date(b.startDate!).getTime() - new Date(a.startDate!).getTime())[0];
+    .sort((a, b) => new Date(b.startDate!).getTime() - new Date(a.startDate!).getTime());
 
-  if (!candidate) {
-    return null;
-  }
+  const resolved = await Promise.all(
+    candidates.map(async (candidate) => {
+      const live = await fetchLiveScore(candidate.home!, candidate.away!);
 
-  const live = await fetchLiveScore(candidate.home!, candidate.away!);
+      if (live) {
+        return live.state === 'FINISHED' ? null : buildLiveEntry(candidate, live.state, live);
+      }
 
-  if (live) {
-    return live.state === 'FINISHED' ? null : buildLiveResponse(candidate, live.state, live);
-  }
+      const startMs = new Date(candidate.startDate!).getTime();
+      const fallbackEndMs = candidate.endDate
+        ? new Date(candidate.endDate).getTime()
+        : startMs + FALLBACK_LIVE_WINDOW_MS;
 
-  const startMs = new Date(candidate.startDate!).getTime();
-  const fallbackEndMs = candidate.endDate
-    ? new Date(candidate.endDate).getTime()
-    : startMs + FALLBACK_LIVE_WINDOW_MS;
+      return nowMs <= fallbackEndMs ? buildLiveEntry(candidate, 'LIVE', null) : null;
+    }),
+  );
 
-  return nowMs <= fallbackEndMs ? buildLiveResponse(candidate, 'LIVE', null) : null;
+  return resolved.filter((entry): entry is LiveMatchEntry => entry !== null);
 };
 
 const handler = async (): Promise<LiveMatchResponse> => {
@@ -186,29 +191,41 @@ const handler = async (): Promise<LiveMatchResponse> => {
 
   const now = Date.now();
 
-  const liveMatch = await resolveLiveMatch(matches, now);
-  if (liveMatch) {
-    return liveMatch;
+  const liveMatches = await resolveLiveMatches(matches, now);
+  if (liveMatches.length > 0) {
+    return { found: true, matches: liveMatches };
   }
 
   const upcoming = matches
     .filter((match) => match.home && match.away && match.startDate)
     .filter((match) => new Date(match.startDate!).getTime() > now)
-    .sort((a, b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime())[0];
+    .sort((a, b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime());
 
-  if (!upcoming) {
-    return { found: false };
+  if (upcoming.length === 0) {
+    return { found: false, matches: [] };
   }
+
+  const earliest = upcoming[0];
+  const earliestStartMs = new Date(earliest.startDate!).getTime();
+  const earliestEndMs = earliest.endDate
+    ? new Date(earliest.endDate).getTime()
+    : earliestStartMs + FALLBACK_LIVE_WINDOW_MS;
+
+  const nextMatches = upcoming.filter(
+    (match) => new Date(match.startDate!).getTime() < earliestEndMs,
+  );
 
   return {
     found: true,
-    state: 'UPCOMING',
-    home: upcoming.home ?? '',
-    away: upcoming.away ?? '',
-    homeScore: null,
-    awayScore: null,
-    startDate: upcoming.startDate ?? undefined,
-    stageLabel: toStageLabel(upcoming.stage),
+    matches: nextMatches.map((match) => ({
+      state: 'UPCOMING' as const,
+      home: match.home ?? '',
+      away: match.away ?? '',
+      homeScore: null,
+      awayScore: null,
+      startDate: match.startDate ?? undefined,
+      stageLabel: toStageLabel(match.stage),
+    })),
   };
 };
 
