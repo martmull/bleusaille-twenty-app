@@ -789,14 +789,13 @@ const LiveMatch = () => {
     if (!current?.found) {
       return;
     }
-    current.matches.filter(isRunningEntry).forEach(loadOdds);
+    current.matches.forEach(loadOdds);
   }, [loadOdds]);
 
   const isRunning = data?.found === true && data.matches.some(isRunningEntry);
-  const runningSignature =
+  const matchSignature =
     data?.found === true
       ? data.matches
-          .filter(isRunningEntry)
           .map((match) => `${match.home}|${match.away}|${match.homeScore ?? ''}|${match.awayScore ?? ''}`)
           .join(';')
       : '';
@@ -813,9 +812,7 @@ const LiveMatch = () => {
     const intervalMs = isRunning ? LIVE_POLL_INTERVAL_MS : IDLE_POLL_INTERVAL_MS;
     const interval = setInterval(() => {
       loadLive();
-      if (isRunning) {
-        loadAllOdds();
-      }
+      loadAllOdds();
     }, intervalMs);
     return () => clearInterval(interval);
   }, [isRunning, loadLive, loadAllOdds]);
@@ -826,19 +823,18 @@ const LiveMatch = () => {
       setOddsByKey({});
       return;
     }
-    const running = current.matches.filter(isRunningEntry);
-    running.forEach(loadOdds);
-    const liveKeys = new Set(running.map(oddsKey));
+    current.matches.forEach(loadOdds);
+    const keys = new Set(current.matches.map(oddsKey));
     setOddsByKey((prev) => {
       const next: Record<string, OddsEntry> = {};
       for (const key of Object.keys(prev)) {
-        if (liveKeys.has(key)) {
+        if (keys.has(key)) {
           next[key] = prev[key];
         }
       }
       return next;
     });
-  }, [runningSignature, loadOdds]);
+  }, [matchSignature, loadOdds]);
 
   useEffect(() => {
     const ticker = setInterval(() => setNow(Date.now()), 1000);
