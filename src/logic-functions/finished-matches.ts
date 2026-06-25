@@ -17,12 +17,6 @@ type WinningBetRecord = {
   match: { id: string | null } | null;
 };
 
-type EvolutionRecord = {
-  matchEndDate: string | null;
-  points: number | null;
-  person: { id: string | null } | null;
-};
-
 type PersonRecord = {
   id: string;
   name: { firstName: string | null } | null;
@@ -49,7 +43,7 @@ type FinishedMatch = {
 const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
   const client = createCoreApiClient();
 
-  const [matches, winningBets, evolutions, people] = await Promise.all([
+  const [matches, winningBets, people] = await Promise.all([
     fetchAllPages<MatchRecord>(async (after) => {
       const { matches: page } = await client.query({
         matches: {
@@ -85,22 +79,6 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
       });
       return page;
     }),
-    fetchAllPages<EvolutionRecord>(async (after) => {
-      const { puntosEvolutions: page } = await client.query({
-        puntosEvolutions: {
-          __args: { first: PAGE_SIZE, after },
-          edges: {
-            node: {
-              matchEndDate: true,
-              points: true,
-              person: { id: true },
-            },
-          },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
-    }),
     fetchAllPages<PersonRecord>(async (after) => {
       const { people: page } = await client.query({
         people: {
@@ -113,7 +91,7 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
     }),
   ]);
 
-  type RawWinner = { name: string; totalPuntos: number; personId: string };
+  type RawWinner = { name: string; totalPuntos: number; personId: string; matchPuntos: number };
 
   const winnersByMatch = new Map<string, { winners: RawWinner[]; puntos: number }>();
   for (const bet of winningBets) {
@@ -124,7 +102,12 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
       continue;
     }
     const entry = winnersByMatch.get(matchId) ?? { winners: [], puntos: 0 };
-    entry.winners.push({ name, totalPuntos: bet.person?.puntos ?? 0, personId });
+    entry.winners.push({
+      name,
+      totalPuntos: bet.person?.puntos ?? 0,
+      personId,
+      matchPuntos: bet.puntos ?? 0,
+    });
     entry.puntos = Math.max(entry.puntos, bet.puntos ?? 0);
     winnersByMatch.set(matchId, entry);
   }
@@ -146,23 +129,39 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
     return ranks;
   };
 
-  const rankMapAt = (cutoff: number, inclusive: boolean): Map<string, number> => {
+  const matchEndMsById = new Map<string, number>();
+  for (const match of matches) {
+    if (match.id) {
+      matchEndMsById.set(match.id, new Date(match.endDate ?? 0).getTime());
+    }
+  }
+
+  const totalsByCutoff = new Map<number, RankTotals>();
+  const totalsUpTo = (cutoffMs: number): RankTotals => {
+    const cached = totalsByCutoff.get(cutoffMs);
+    if (cached) {
+      return cached;
+    }
     const totals: RankTotals = new Map();
     for (const [id, firstName] of firstNameById) {
       totals.set(id, { firstName, total: 0 });
     }
-    for (const evolution of evolutions) {
-      const id = evolution.person?.id;
-      const entry = id ? totals.get(id) : undefined;
-      if (!entry) {
+    for (const [matchId, entry] of winnersByMatch) {
+      const endMs = matchEndMsById.get(matchId);
+      if (endMs === undefined || endMs > cutoffMs) {
         continue;
       }
-      const endDate = new Date(evolution.matchEndDate ?? 0).getTime();
-      if (inclusive ? endDate <= cutoff : endDate < cutoff) {
-        entry.total += evolution.points ?? 0;
+      for (const winner of entry.winners) {
+        const total = totals.get(winner.personId);
+        if (total) {
+          total.total += winner.matchPuntos;
+        } else {
+          totals.set(winner.personId, { firstName: winner.name, total: winner.matchPuntos });
+        }
       }
     }
-    return computeRanks(totals);
+    totalsByCutoff.set(cutoffMs, totals);
+    return totals;
   };
 
   const finished = matches
@@ -177,9 +176,21 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
 
       let winners: Winner[] = [];
       if (rawWinners.length > 0) {
-        const matchEnd = new Date(match.endDate ?? 0).getTime();
-        const afterRanks = rankMapAt(matchEnd, true);
-        const beforeRanks = rankMapAt(matchEnd, false);
+        const cutoffMs = matchEndMsById.get(match.id) ?? new Date(match.endDate ?? 0).getTime();
+        const afterTotals = totalsUpTo(cutoffMs);
+        const afterRanks = computeRanks(afterTotals);
+
+        const beforeTotals: RankTotals = new Map(
+          [...afterTotals.entries()].map(([id, value]) => [id, { ...value }]),
+        );
+        for (const winner of rawWinners) {
+          const total = beforeTotals.get(winner.personId);
+          if (total) {
+            total.total -= winner.matchPuntos;
+          }
+        }
+        const beforeRanks = computeRanks(beforeTotals);
+
         winners = rawWinners
           .map((winner): Winner => {
             const newRank = afterRanks.get(winner.personId) ?? 0;
