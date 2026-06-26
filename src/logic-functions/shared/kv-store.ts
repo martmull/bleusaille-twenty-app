@@ -1,4 +1,4 @@
-import { CoreApiClient } from 'twenty-client-sdk/core';
+import type { CoreApiClient } from 'twenty-client-sdk/core';
 import { isDefined } from 'twenty-sdk/utils';
 
 /**

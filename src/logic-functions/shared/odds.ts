@@ -1,4 +1,4 @@
-import { CoreApiClient } from 'twenty-client-sdk/core';
+import type { CoreApiClient } from 'twenty-client-sdk/core';
 
 import { kvGet, kvSet } from 'src/logic-functions/shared/kv-store';
 import { notifyOddsApiKeyExpired } from 'src/logic-functions/shared/resend';
