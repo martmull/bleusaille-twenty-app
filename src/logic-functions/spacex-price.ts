@@ -1,6 +1,6 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
-import { createCoreApiClient } from 'src/logic-functions/shared/api';
+import { NUMBER_OF_BETTORS } from 'src/constants/tournament';
 
 const SPACEX_SYMBOL = 'SPCX';
 const YAHOO_CHART_URL = 'https://query1.finance.yahoo.com/v8/finance/chart';
@@ -34,12 +34,9 @@ const fetchYahooMeta = async (symbol: string): Promise<YahooMeta> => {
 };
 
 const handler = async () => {
-  const client = createCoreApiClient();
-
-  const [spacex, eurUsd, peopleResult] = await Promise.all([
+  const [spacex, eurUsd] = await Promise.all([
     fetchYahooMeta(SPACEX_SYMBOL),
     fetchYahooMeta('EURUSD=X'),
-    client.query({ people: { __args: { first: 1 }, totalCount: true } }),
   ]);
 
   const priceUsd = spacex.regularMarketPrice;
@@ -58,7 +55,7 @@ const handler = async () => {
     priceEur,
     eurUsdRate,
     currency: 'EUR',
-    participantCount: peopleResult.people.totalCount,
+    participantCount: NUMBER_OF_BETTORS,
   };
 };
 

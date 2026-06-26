@@ -1,5 +1,6 @@
 import { defineLogicFunction, RoutePayload } from 'twenty-sdk/define';
 
+import { PUNTOS_SHARED_PER_MATCH } from 'src/constants/tournament';
 import { createCoreApiClient, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
 import { getStageMultiplier } from 'src/logic-functions/shared/compute-puntos';
 import { teamPairKey } from 'src/logic-functions/shared/team-aliases';
@@ -206,7 +207,7 @@ const fetchOutcomes = async (
   }
 
   const stage = matchRecord?.stage ?? null;
-  const pot = 10 * getStageMultiplier(stage) * matchBets.length;
+  const pot = PUNTOS_SHARED_PER_MATCH * getStageMultiplier(stage);
 
   const inverseQuote = (quote: number | null | undefined): number =>
     quote && quote > 0 ? 1 / quote : 0;

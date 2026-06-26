@@ -1,5 +1,6 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
+import { NUMBER_OF_BETTORS } from 'src/constants/tournament';
 import { applyGroupedUpdates, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
 import { computeBreakeven } from 'src/logic-functions/shared/match-breakeven';
 
@@ -26,36 +27,35 @@ export type UpdateMatchBreakevenResult = {
 export const updateMatchBreakeven = async (
   client: CoreApiClient,
 ): Promise<UpdateMatchBreakevenResult> => {
-  const [matches, totalCountResult] = await Promise.all([
-    fetchAllPages<MatchRecord>(async (after) => {
-      const { matches: page } = await client.query({
-        matches: {
-          __args: { first: PAGE_SIZE, after },
-          edges: {
-            node: {
-              id: true,
-              startDate: true,
-              score: true,
-              homeQuote: true,
-              drawQuote: true,
-              awayQuote: true,
-              homeBreakeven: true,
-              drawBreakeven: true,
-              awayBreakeven: true,
-              prematchHomeBreakeven: true,
-              prematchDrawBreakeven: true,
-              prematchAwayBreakeven: true,
-            },
+  const matches = await fetchAllPages<MatchRecord>(async (after) => {
+    const { matches: page } = await client.query({
+      matches: {
+        __args: { first: PAGE_SIZE, after },
+        edges: {
+          node: {
+            id: true,
+            startDate: true,
+            score: true,
+            homeQuote: true,
+            drawQuote: true,
+            awayQuote: true,
+            homeBreakeven: true,
+            drawBreakeven: true,
+            awayBreakeven: true,
+            prematchHomeBreakeven: true,
+            prematchDrawBreakeven: true,
+            prematchAwayBreakeven: true,
           },
-          pageInfo: { hasNextPage: true, endCursor: true },
         },
-      });
-      return page;
-    }),
-    client.query({ people: { __args: { first: 1 }, totalCount: true } }),
-  ]);
+        pageInfo: { hasNextPage: true, endCursor: true },
+      },
+    });
+    return page;
+  });
 
-  const totalBets = totalCountResult.people.totalCount;
+  // The bettor pool is fixed for the tournament, so there is no need to count
+  // people on every run.
+  const totalBets = NUMBER_OF_BETTORS;
 
   const updates: Array<{
     id: string;

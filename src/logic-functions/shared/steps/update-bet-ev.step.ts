@@ -102,7 +102,6 @@ export const updateBetEv = async (
             ).length;
             return computeBetEv({
               stage: match.stage,
-              bettors: matchBets.length,
               winnersForPick,
               pickProbability: pickProbability(bet.betValue, match, chances),
             });
