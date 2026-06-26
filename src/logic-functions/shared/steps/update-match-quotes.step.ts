@@ -6,8 +6,14 @@ import {
   PAGE_SIZE,
   round2,
 } from 'src/logic-functions/shared/api';
-import { fetchMatchResultChances, MatchResultChances } from 'src/logic-functions/shared/odds';
+import {
+  fetchMatchQualifyChances,
+  fetchMatchResultChances,
+  MatchQualifyChances,
+  MatchResultChances,
+} from 'src/logic-functions/shared/odds';
 import { canonicalTeamName, teamPairKey } from 'src/logic-functions/shared/team-aliases';
+import { MatchType } from 'src/objects/match.object';
 
 type MatchRecord = {
   id: string;
@@ -15,6 +21,7 @@ type MatchRecord = {
   away: string | null;
   startDate: string | null;
   result: string | null;
+  stage: string | null;
   homeQuote: number | null;
   drawQuote: number | null;
   awayQuote: number | null;
@@ -29,9 +36,12 @@ export type UpdateMatchQuotesResult = {
   updated: number;
 };
 
+const isPoolStage = (stage: string | null): boolean => stage === MatchType.GROUP_STAGE;
+
 export const updateMatchQuotes = async (
   client: CoreApiClient,
   chances?: Map<string, MatchResultChances>,
+  qualifyChances?: Map<string, MatchQualifyChances>,
 ): Promise<UpdateMatchQuotesResult> => {
   const [chancesByPair, matches] = await Promise.all([
     chances ? Promise.resolve(chances) : fetchMatchResultChances(),
@@ -46,6 +56,7 @@ export const updateMatchQuotes = async (
               away: true,
               startDate: true,
               result: true,
+              stage: true,
               homeQuote: true,
               drawQuote: true,
               awayQuote: true,
@@ -60,6 +71,17 @@ export const updateMatchQuotes = async (
       return page;
     }),
   ]);
+
+  // Knockout matches use the two-way "qualify" (draw-no-bet) market, which is
+  // only available through per-event requests, so we resolve it for the pairs
+  // that need it rather than for every match.
+  const qualifyPairKeys = new Set<string>();
+  for (const match of matches) {
+    if (!match.result && match.home && match.away && !isPoolStage(match.stage)) {
+      qualifyPairKeys.add(teamPairKey(match.home, match.away));
+    }
+  }
+  const qualifyByPair = qualifyChances ?? (await fetchMatchQualifyChances(qualifyPairKeys, client));
 
   const updates: Array<{
     id: string;
@@ -77,28 +99,58 @@ export const updateMatchQuotes = async (
   const now = Date.now();
 
   for (const match of matches) {
-      const hasResult = Boolean(match.result);
+    const hasResult = Boolean(match.result);
+    const pairKey = match.home && match.away ? teamPairKey(match.home, match.away) : null;
 
-    const chance =
-      !hasResult && match.home && match.away
-        ? chancesByPair.get(teamPairKey(match.home, match.away))
-        : undefined;
+    let homeQuote: number | null = null;
+    let awayQuote: number | null = null;
+    let drawQuote: number | null = null;
+    let hasQuotes = false;
 
-    const freshHomeQuote =
-      chance && match.home
-        ? round2(chance.teamPrices.get(canonicalTeamName(match.home)) ?? 0) || null
-        : null;
-    const freshAwayQuote =
-      chance && match.away
-        ? round2(chance.teamPrices.get(canonicalTeamName(match.away)) ?? 0) || null
-        : null;
-    const freshDrawQuote = chance ? round2(chance.drawPrice) || null : null;
+    // Finished matches (those with a result) keep no live cotes. Otherwise we
+    // fetch fresh ones but fall back to the last known cote when none is
+    // available, so quotes don't disappear mid-match.
+    if (!hasResult && pairKey) {
+      if (isPoolStage(match.stage)) {
+        // Pool (group-stage) matches can end in a draw, so we keep the
+        // three-way home/draw/away cotes.
+        const chance = chancesByPair.get(pairKey);
+        const freshHomeQuote =
+          chance && match.home
+            ? round2(chance.teamPrices.get(canonicalTeamName(match.home)) ?? 0) || null
+            : null;
+        const freshAwayQuote =
+          chance && match.away
+            ? round2(chance.teamPrices.get(canonicalTeamName(match.away)) ?? 0) || null
+            : null;
+        const freshDrawQuote = chance ? round2(chance.drawPrice) || null : null;
 
-    const homeQuote = hasResult ? null : freshHomeQuote ?? match.homeQuote;
-    const awayQuote = hasResult ? null : freshAwayQuote ?? match.awayQuote;
-    const drawQuote = hasResult ? null : freshDrawQuote ?? match.drawQuote;
+        homeQuote = freshHomeQuote ?? match.homeQuote;
+        awayQuote = freshAwayQuote ?? match.awayQuote;
+        drawQuote = freshDrawQuote ?? match.drawQuote;
+        hasQuotes = Boolean(chance);
+      } else {
+        // Knockout matches always produce a qualifier, so we take the two-way
+        // winner (qualify) cotes from the draw-no-bet market: HOME and AWAY
+        // only, no draw.
+        const qualify = qualifyByPair.get(pairKey);
+        const freshHomeQuote =
+          qualify && match.home
+            ? round2(qualify.teamPrices.get(canonicalTeamName(match.home)) ?? 0) || null
+            : null;
+        const freshAwayQuote =
+          qualify && match.away
+            ? round2(qualify.teamPrices.get(canonicalTeamName(match.away)) ?? 0) || null
+            : null;
 
-    if (chance) {
+        homeQuote = freshHomeQuote ?? match.homeQuote;
+        awayQuote = freshAwayQuote ?? match.awayQuote;
+        drawQuote = null;
+        hasQuotes = Boolean(qualify);
+      }
+    }
+
+    if (hasQuotes) {
       withQuotes += 1;
     }
 
