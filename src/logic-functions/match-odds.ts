@@ -42,6 +42,7 @@ type OutcomeUser = {
 
 type OutcomeBets = {
   payout: number;
+  expectedPuntos: number | null;
   probability: number | null;
   quote: number | null;
   breakeven: number | null;
@@ -243,6 +244,9 @@ const fetchOutcomes = async (
     const winners = outcomeBets.length;
     const payout = winners > 0 ? Math.round(pot / winners) : 0;
     const probability = totalInverse > 0 ? inverseByOutcome[betValue] / totalInverse : null;
+    // Expected puntos a bettor on this outcome wins: the payout they'd get if it
+    // happens, weighted by the live implied probability of it happening.
+    const expectedPuntos = probability !== null ? payout * probability : null;
 
     const scenarioTotals: RankTotals = new Map(
       [...baseTotals].map(([id, value]) => [id, { ...value }]),
@@ -273,6 +277,7 @@ const fetchOutcomes = async (
 
     return {
       payout,
+      expectedPuntos,
       probability,
       quote: quoteByOutcome[betValue],
       breakeven: breakevenByOutcome[betValue],
