@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { InMemoryCoreClient } from 'src/__tests__/in-memory-core-client';
-import { fetchMatchQualifyChances } from 'src/logic-functions/shared/odds';
+import {
+  type CachedQualify,
+  fetchMatchQualifyChances,
+} from 'src/logic-functions/shared/odds';
 import { canonicalTeamName, teamPairKey } from 'src/logic-functions/shared/team-aliases';
 
 type DrawNoBetEvent = {
@@ -10,7 +13,6 @@ type DrawNoBetEvent = {
     markets: Array<{ key: string; outcomes: Array<{ name: string; price: number }> }>;
   }>;
 };
-type CachedQualify = { teamPrices: Record<string, number>; fetchedAt: number };
 
 const SA_CANADA_ID = 'evt-sa-canada';
 const BRAZIL_JAPAN_ID = 'evt-brazil-japan';
@@ -45,6 +47,26 @@ const SA_CANADA_ODDS: DrawNoBetEvent = {
       ],
       'pinnacle',
     ),
+  ],
+};
+
+// Partially populated responses that exercise the `?? []` / strict-market paths.
+const NO_BOOKMAKERS: DrawNoBetEvent = { bookmakers: [] };
+const EMPTY_MARKETS: DrawNoBetEvent = { bookmakers: [{ key: 'williamhill', markets: [] }] };
+const NO_DRAW_NO_BET_MARKET: DrawNoBetEvent = {
+  bookmakers: [
+    {
+      key: 'williamhill',
+      markets: [
+        {
+          key: 'h2h',
+          outcomes: [
+            { name: 'Canada', price: 1.2 },
+            { name: 'South Africa', price: 4.0 },
+          ],
+        },
+      ],
+    },
   ],
 };
 
@@ -133,6 +155,38 @@ describe('fetchMatchQualifyChances', () => {
     const result = await fetchMatchQualifyChances(new Set([saCanadaPair]));
 
     expect(result.size).toBe(0);
+  });
+
+  it('throws when the events listing response is not ok', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 401, json: async () => ({}) })),
+    );
+
+    await expect(fetchMatchQualifyChances(new Set([saCanadaPair]))).rejects.toThrow(
+      /Events API request failed/,
+    );
+  });
+
+  it.each([
+    ['no bookmakers', NO_BOOKMAKERS],
+    ['a bookmaker with no markets', EMPTY_MARKETS],
+    ['no draw_no_bet market', NO_DRAW_NO_BET_MARKET],
+  ])('adds no entry when the odds response has %s', async (_label, odds) => {
+    stubFetch({ [SA_CANADA_ID]: odds });
+
+    const result = await fetchMatchQualifyChances(new Set([saCanadaPair]));
+
+    expect(result.size).toBe(0);
+  });
+
+  it('does not write to the cache when no qualify odds are found', async () => {
+    const client = new InMemoryCoreClient();
+    stubFetch({ [SA_CANADA_ID]: NO_BOOKMAKERS });
+
+    await fetchMatchQualifyChances(new Set([saCanadaPair]), client.asClient());
+
+    expect(client.rows.has(cacheKey(SA_CANADA_ID))).toBe(false);
   });
 
   it('caches the fetched odds in the KV store with a fetched-at timestamp', async () => {

@@ -51,15 +51,18 @@ export const kvSet = async (
     await client.mutation({
       createKvStore: { __args: { data: { key, value } }, id: true },
     });
-  } catch {
-    // Another run created the same key between our lookup and create (the unique
-    // index rejected the duplicate); fall back to updating the existing row.
+  } catch (error) {
+    // The create can fail because another run inserted the same key between our
+    // lookup and create (the unique index rejected the duplicate). If a row now
+    // exists, that race is the cause — update it. Otherwise the failure was
+    // something else (network, permission, ...) and must not be swallowed.
     const winner = await findByKey(client, key);
-    if (isDefined(winner)) {
-      await client.mutation({
-        updateKvStore: { __args: { id: winner.id, data: { value } }, id: true },
-      });
+    if (!isDefined(winner)) {
+      throw error;
     }
+    await client.mutation({
+      updateKvStore: { __args: { id: winner.id, data: { value } }, id: true },
+    });
   }
 };
 

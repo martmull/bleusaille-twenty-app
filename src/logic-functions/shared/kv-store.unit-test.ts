@@ -84,6 +84,15 @@ describe('kvSet', () => {
     expect(client.rows.size).toBe(1);
     expect(await kvGet(client.asClient(), 'k')).toEqual({ winner: false });
   });
+
+  it('rethrows a create failure that is not a duplicate-key race', async () => {
+    const client = new InMemoryCoreClient();
+    client.failNextCreate = true;
+
+    // The create fails and no competing row exists, so the error must surface.
+    await expect(kvSet(client.asClient(), 'k', { v: 1 })).rejects.toThrow();
+    expect(client.rows.size).toBe(0);
+  });
 });
 
 describe('kvDel', () => {

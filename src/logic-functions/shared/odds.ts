@@ -27,7 +27,7 @@ const DRAW_NO_BET_MARKET = 'draw_no_bet';
 // (The events listing itself is free, so it is fetched fresh every run.)
 const QUALIFY_CACHE_TTL_MS = 60 * 60 * 1000;
 const qualifyCacheKey = (eventId: string): string => `cache:qualify-cote:${eventId}`;
-type CachedQualify = { teamPrices: Record<string, number>; fetchedAt: number };
+export type CachedQualify = { teamPrices: Record<string, number>; fetchedAt: number };
 
 type Outcome = { name: string; price: number };
 type Market = { key: string; outcomes: Outcome[] };
@@ -196,9 +196,16 @@ export const fetchMatchQualifyChances = async (
         }
       }
 
-      const oddsResponse = await fetch(eventDrawNoBetUrl(event.id));
+      const oddsUrl = eventDrawNoBetUrl(event.id);
+      const oddsResponse = await fetch(oddsUrl);
 
       if (!oddsResponse.ok) {
+        // 401/403 means the API key itself is the problem — surface it like
+        // fetchMatchResultChances does. Other statuses (e.g. 404 when a market
+        // isn't offered yet) just mean there are no qualify odds for now.
+        if (oddsResponse.status === 401 || oddsResponse.status === 403) {
+          await notifyOddsApiKeyExpired({ url: oddsUrl, status: oddsResponse.status });
+        }
         return;
       }
 
@@ -206,8 +213,9 @@ export const fetchMatchQualifyChances = async (
       const bookmakers = data.bookmakers ?? [];
       const bookmaker =
         bookmakers.find((candidate) => candidate.key === DRAW_NO_BET_BOOKMAKER) ?? bookmakers[0];
-      const market =
-        bookmaker?.markets.find((entry) => entry.key === DRAW_NO_BET_MARKET) ?? bookmaker?.markets[0];
+      // We only ever request the draw_no_bet market, so use it strictly rather
+      // than falling back to whatever other market might be present.
+      const market = bookmaker?.markets.find((entry) => entry.key === DRAW_NO_BET_MARKET);
       const outcomes = market?.outcomes ?? [];
 
       const teamPrices: Record<string, number> = {};

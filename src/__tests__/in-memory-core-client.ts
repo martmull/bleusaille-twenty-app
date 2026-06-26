@@ -13,6 +13,9 @@ export class InMemoryCoreClient {
   private sequence = 0;
   private readonly hiddenOnce = new Set<string>();
 
+  /** Make the next createKvStore throw, to simulate a non-duplicate failure. */
+  failNextCreate = false;
+
   /**
    * Make the very next read of `key` miss, to simulate a concurrent writer that
    * inserted the row between our lookup and our create (the uniqueness race the
@@ -51,6 +54,11 @@ export class InMemoryCoreClient {
         key: string;
         value: unknown;
       };
+
+      if (this.failNextCreate) {
+        this.failNextCreate = false;
+        throw new Error('Simulated create failure (network/permission)');
+      }
 
       if (this.rows.has(key)) {
         throw new Error(`Duplicate key "${key}" rejected by unique index`);
