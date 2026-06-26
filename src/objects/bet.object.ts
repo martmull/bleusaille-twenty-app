@@ -6,7 +6,6 @@ export const BET_NAME_FIELD_UNIVERSAL_IDENTIFIER = 'abe622ef-f5b4-446c-bd15-3b05
 export const BET_VALUE_FIELD_UNIVERSAL_IDENTIFIER = 'b417c819-2b22-4072-bb65-be8221a5eb9b';
 export const BET_WON_FIELD_UNIVERSAL_IDENTIFIER = '48318c3c-2812-4c7c-943f-7f2480867f45';
 export const BET_PUNTOS_FIELD_UNIVERSAL_IDENTIFIER = 'd367dbc6-34cb-4c30-815f-39f6fe91ae2e';
-export const BET_EV_FIELD_UNIVERSAL_IDENTIFIER = '422b713b-0ab5-4341-82e3-5fc9d031b4de';
 export const BET_PUNTEVS_FIELD_UNIVERSAL_IDENTIFIER = 'afcd085c-da44-4988-89e2-8f224001d368';
 
 export enum BetValue {
@@ -87,21 +86,10 @@ export default defineObject({
       defaultValue: null,
     },
     {
-      universalIdentifier: BET_EV_FIELD_UNIVERSAL_IDENTIFIER,
-      type: FieldType.NUMBER,
-      name: 'ev',
-      label: 'EV (puntos)',
-      description:
-        'Expected puntos for this bet, from live match odds weighted by the pot shared across winners',
-      icon: 'IconChartLine',
-      isNullable: true,
-      defaultValue: null,
-    },
-    {
       universalIdentifier: BET_PUNTEVS_FIELD_UNIVERSAL_IDENTIFIER,
       type: FieldType.NUMBER,
       name: 'puntevs',
-      label: 'Puntevs (puntos)',
+      label: 'Puntevs',
       description:
         'Expected puntos for this bet: win probability * 170 / number of bettors on this bet',
       icon: 'IconChartLine',

@@ -19,7 +19,6 @@ type OutcomeUser = {
 };
 
 type OutcomeBets = {
-  ev: number | null;
   payout: number;
   probability: number | null;
   quote: number | null;
@@ -133,8 +132,6 @@ const OUTCOME_BET_LABEL: Record<OutcomeKey, string> = {
 };
 
 const OUTCOME_ORDER: OutcomeKey[] = ['home', 'draw', 'away'];
-
-const formatEv = (ev: number | null): string => (ev === null ? '—' : ev.toFixed(1));
 
 const formatRankDelta = (delta: number): string =>
   delta > 0 ? `+${delta}` : delta < 0 ? `${delta}` : '=';
@@ -419,9 +416,6 @@ const OutcomeColumn = ({ outcome, style }: { outcome: OutcomeBets; style: ChipSt
         className="lm-outcome-sep"
         style={{ flex: '0 0 auto', alignSelf: 'stretch', width: '1px', background: theme.border }}
       />
-      <span style={{ fontSize: '18px', fontWeight: 800, color: theme.textPrimary, lineHeight: 1 }}>
-        {formatEv(outcome.ev)}
-      </span>
       {outcome.probability !== null ? (
         <span style={{ fontSize: '14px', fontWeight: 700, color: theme.subtle, lineHeight: 1 }}>
           {formatProbability(outcome.probability)}

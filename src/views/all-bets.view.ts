@@ -3,9 +3,9 @@ import { defineView, ViewKey, ViewType } from 'twenty-sdk/define';
 import { MATCH_ON_BET_FIELD_UNIVERSAL_IDENTIFIER } from 'src/fields/match-on-bet.field';
 import { PERSON_ON_BET_FIELD_UNIVERSAL_IDENTIFIER } from 'src/fields/person-on-bet.field';
 import {
-  BET_EV_FIELD_UNIVERSAL_IDENTIFIER,
   BET_NAME_FIELD_UNIVERSAL_IDENTIFIER,
   BET_OBJECT_UNIVERSAL_IDENTIFIER,
+  BET_PUNTEVS_FIELD_UNIVERSAL_IDENTIFIER,
   BET_PUNTOS_FIELD_UNIVERSAL_IDENTIFIER,
   BET_VALUE_FIELD_UNIVERSAL_IDENTIFIER,
   BET_WON_FIELD_UNIVERSAL_IDENTIFIER,
@@ -55,8 +55,8 @@ export default defineView({
       isVisible: true,
     },
     {
-      universalIdentifier: 'd1f8b7e2-2c4a-4e96-9b3d-7a1c6f0e85b4',
-      fieldMetadataUniversalIdentifier: BET_EV_FIELD_UNIVERSAL_IDENTIFIER,
+      universalIdentifier: '55faaa16-1d0c-4d45-96b6-070fe6721b1d',
+      fieldMetadataUniversalIdentifier: BET_PUNTEVS_FIELD_UNIVERSAL_IDENTIFIER,
       position: 5,
       isVisible: true,
       size: 130,

@@ -8,7 +8,6 @@ import { BetValue } from 'src/objects/bet.object';
 
 type BetRecord = {
   betValue: string;
-  ev: number | null;
   person: { id: string; name: { firstName: string | null } | null } | null;
   match: {
     home: string | null;
@@ -42,7 +41,6 @@ type OutcomeUser = {
 };
 
 type OutcomeBets = {
-  ev: number | null;
   payout: number;
   probability: number | null;
   quote: number | null;
@@ -163,7 +161,6 @@ const fetchOutcomes = async (
           edges: {
             node: {
               betValue: true,
-              ev: true,
               person: { id: true, name: { firstName: true } },
               match: {
                 home: true,
@@ -243,7 +240,6 @@ const fetchOutcomes = async (
 
   const buildOutcome = (betValue: BetValue): OutcomeBets => {
     const outcomeBets = matchBets.filter((bet) => bet.betValue === betValue);
-    const ev = outcomeBets.find((bet) => bet.ev !== null)?.ev ?? null;
     const winners = outcomeBets.length;
     const payout = winners > 0 ? Math.round(pot / winners) : 0;
     const probability = totalInverse > 0 ? inverseByOutcome[betValue] / totalInverse : null;
@@ -276,7 +272,6 @@ const fetchOutcomes = async (
       .sort((a, b) => b.newPuntos - a.newPuntos || a.name.localeCompare(b.name));
 
     return {
-      ev,
       payout,
       probability,
       quote: quoteByOutcome[betValue],

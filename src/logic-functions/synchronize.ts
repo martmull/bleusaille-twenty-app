@@ -13,7 +13,6 @@ import { updateVictoryChance } from 'src/logic-functions/shared/steps/update-vic
 import { updateWcWinnerBets } from 'src/logic-functions/shared/steps/update-wc-winner-bets.step';
 import { updateWinnerBetPuntosEv } from 'src/logic-functions/shared/steps/update-winner-bet-puntos-ev.step';
 import { updatePuntosWcwEv } from 'src/logic-functions/shared/steps/update-puntos-wcw-ev.step';
-import { updateBetEv } from 'src/logic-functions/shared/steps/update-bet-ev.step';
 import { updateMatchQuotes } from 'src/logic-functions/shared/steps/update-match-quotes.step';
 import { updateMatchBreakeven } from 'src/logic-functions/shared/steps/update-match-breakeven.step';
 import { updateWinnings } from 'src/logic-functions/shared/steps/update-winnings.step';
@@ -25,64 +24,60 @@ export const runSynchronize = async (client: CoreApiClient = createCoreApiClient
   const externalData = await fetchExternalData();
   console.log('[synchronize] external data fetched');
 
-  console.log('[synchronize] step 1/14: syncing matches');
+  console.log('[synchronize] step 1/13: syncing matches');
   const syncMatchesResult = await syncMatches(client, externalData.worldCupMatches);
   console.log('[synchronize] sync matches done', syncMatchesResult);
 
-  console.log('[synchronize] step 2/14: syncing bets');
+  console.log('[synchronize] step 2/13: syncing bets');
   const syncBetsResult = await syncBets(client, externalData.kicktippBets);
   console.log('[synchronize] sync bets done', syncBetsResult);
 
-  console.log('[synchronize] step 3/14: settling bets');
+  console.log('[synchronize] step 3/13: settling bets');
   const settleBetsResult = await settleBets(client);
   console.log('[synchronize] settle bets done', settleBetsResult);
 
-  console.log('[synchronize] step 4/14: computing puntos');
+  console.log('[synchronize] step 4/13: computing puntos');
   const computePuntosResult = await computeBetsPuntos(client);
   console.log('[synchronize] compute puntos done', computePuntosResult);
 
-  console.log('[synchronize] step 5/14: computing puntos evolution');
+  console.log('[synchronize] step 5/13: computing puntos evolution');
   const computePuntosEvolutionResult = await computePuntosEvolution(client);
   console.log('[synchronize] compute puntos evolution done', computePuntosEvolutionResult);
 
-  console.log('[synchronize] step 6/14: updating people puntos');
+  console.log('[synchronize] step 6/13: updating people puntos');
   const updatePeoplePuntosResult = await updatePeoplePuntos(client);
   console.log('[synchronize] update people puntos done', updatePeoplePuntosResult);
 
-  console.log('[synchronize] step 7/14: updating WC winner bets');
+  console.log('[synchronize] step 7/13: updating WC winner bets');
   const updateWcWinnerBetsResult = await updateWcWinnerBets(client, externalData.kicktippWcWinners);
   console.log('[synchronize] update WC winner bets done', updateWcWinnerBetsResult);
 
-  console.log('[synchronize] step 8/14: updating victory chance');
+  console.log('[synchronize] step 8/13: updating victory chance');
   const updateVictoryChanceResult = await updateVictoryChance(
     client,
     externalData.worldCupWinnerChances,
   );
   console.log('[synchronize] update victory chance done', updateVictoryChanceResult);
 
-  console.log('[synchronize] step 9/14: updating winner bet puntos ev');
+  console.log('[synchronize] step 9/13: updating winner bet puntos ev');
   const updateWinnerBetPuntosEvResult = await updateWinnerBetPuntosEv(client);
   console.log('[synchronize] update winner bet puntos ev done', updateWinnerBetPuntosEvResult);
 
-  console.log('[synchronize] step 10/14: updating puntos + wcw ev');
+  console.log('[synchronize] step 10/13: updating puntos + wcw ev');
   const updatePuntosWcwEvResult = await updatePuntosWcwEv(client);
   console.log('[synchronize] update puntos + wcw ev done', updatePuntosWcwEvResult);
 
-  console.log('[synchronize] step 11/14: updating winnings');
+  console.log('[synchronize] step 11/13: updating winnings');
   const updateWinningsResult = await updateWinnings(client);
   console.log('[synchronize] update winnings done', updateWinningsResult);
 
-  console.log('[synchronize] step 12/14: updating match quotes');
+  console.log('[synchronize] step 12/13: updating match quotes');
   const updateMatchQuotesResult = await updateMatchQuotes(client, externalData.matchResultChances);
   console.log('[synchronize] update match quotes done', updateMatchQuotesResult);
 
-  console.log('[synchronize] step 13/14: updating match breakeven');
+  console.log('[synchronize] step 13/13: updating match breakeven');
   const updateMatchBreakevenResult = await updateMatchBreakeven(client);
   console.log('[synchronize] update match breakeven done', updateMatchBreakevenResult);
-
-  console.log('[synchronize] step 14/14: updating bet EV');
-  const updateBetEvResult = await updateBetEv(client, externalData.matchResultChances);
-  console.log('[synchronize] update bet EV done', updateBetEvResult);
 
   console.log('[synchronize] pipeline complete');
 
@@ -100,7 +95,6 @@ export const runSynchronize = async (client: CoreApiClient = createCoreApiClient
     updateWinnings: updateWinningsResult,
     updateMatchQuotes: updateMatchQuotesResult,
     updateMatchBreakeven: updateMatchBreakevenResult,
-    updateBetEv: updateBetEvResult,
   };
 };
 
