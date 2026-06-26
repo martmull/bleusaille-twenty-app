@@ -29,14 +29,26 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Deploy
-        uses: twentyhq/twenty/.github/actions/deploy-twenty-app@main
-        with:
-          api-url: ${{ env.TWENTY_DEPLOY_URL }}
-          api-key: ${{ secrets.TWENTY_DEPLOY_API_KEY }}
+      - name: Enable Corepack
+        run: corepack enable
 
-      - name: Install
-        uses: twentyhq/twenty/.github/actions/install-twenty-app@main
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          api-url: ${{ env.TWENTY_DEPLOY_URL }}
-          api-key: ${{ secrets.TWENTY_DEPLOY_API_KEY }}
+          node-version-file: '.nvmrc'
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Authenticate remote
+        run: >-
+          yarn twenty remote:add
+          --as ci
+          --url "$TWENTY_DEPLOY_URL"
+          --api-key "$TWENTY_DEPLOY_API_KEY"
+        env:
+          TWENTY_DEPLOY_API_KEY: ${{ secrets.TWENTY_DEPLOY_API_KEY }}
+
+      - name: Publish app
+        run: yarn twenty dev --once
