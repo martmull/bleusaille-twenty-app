@@ -7,7 +7,7 @@ import { computeBreakeven } from 'src/logic-functions/shared/match-breakeven';
 type MatchRecord = {
   id: string;
   startDate: string | null;
-  score: string | null;
+  result: string | null;
   homeQuote: number | null;
   drawQuote: number | null;
   awayQuote: number | null;
@@ -35,7 +35,7 @@ export const updateMatchBreakeven = async (
           node: {
             id: true,
             startDate: true,
-            score: true,
+            result: true,
             homeQuote: true,
             drawQuote: true,
             awayQuote: true,
@@ -72,11 +72,11 @@ export const updateMatchBreakeven = async (
   const now = Date.now();
 
   for (const match of matches) {
-    const hasScore = Boolean(match.score);
+    const hasResult = Boolean(match.result);
 
-    const homeBreakeven = hasScore ? null : computeBreakeven(totalBets, match.homeQuote);
-    const drawBreakeven = hasScore ? null : computeBreakeven(totalBets, match.drawQuote);
-    const awayBreakeven = hasScore ? null : computeBreakeven(totalBets, match.awayQuote);
+    const homeBreakeven = hasResult ? null : computeBreakeven(totalBets, match.homeQuote);
+    const drawBreakeven = hasResult ? null : computeBreakeven(totalBets, match.drawQuote);
+    const awayBreakeven = hasResult ? null : computeBreakeven(totalBets, match.awayQuote);
 
     const isUpcoming = match.startDate ? new Date(match.startDate).getTime() > now : false;
 
