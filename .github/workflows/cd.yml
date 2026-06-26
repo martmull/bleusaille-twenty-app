@@ -33,11 +33,12 @@ jobs:
 
       - name: Check deploy config
         run: |
-          if [ -z "$TWENTY_DEPLOY_URL" ]; then
+          set -euo pipefail
+          if [ -z "${TWENTY_DEPLOY_URL:-}" ]; then
             echo "::error::TWENTY_DEPLOY_URL is empty. Set it in the 'Production' environment (Settings → Environments → Production → Variables)."
             exit 1
           fi
-          if [ -z "$TWENTY_DEPLOY_API_KEY" ]; then
+          if [ -z "${TWENTY_DEPLOY_API_KEY:-}" ]; then
             echo "::error::TWENTY_DEPLOY_API_KEY is empty. Set it in the 'Production' environment (Settings → Environments → Production → Secrets)."
             exit 1
           fi
