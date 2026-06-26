@@ -49,6 +49,9 @@ export const round2 = (value: number): number => Math.round(value * 100) / 100;
 
 export const MUTATION_CONCURRENCY = 25;
 
+// A single mutation can update at most this many records (server-enforced).
+export const MAX_RECORDS_PER_MUTATION = 200;
+
 type RecordUpdate<Data> = { id: string; data: Data };
 
 export const applyGroupedUpdates = async <Data>(
@@ -67,8 +70,14 @@ export const applyGroupedUpdates = async <Data>(
     }
   }
 
-  for (const batch of chunk([...groups.values()], MUTATION_CONCURRENCY)) {
-    await Promise.all(batch.map((group) => updateMany(group.ids, group.data)));
+  // A group can hold more ids than a single mutation allows, so split each
+  // group's ids into capped batches before issuing the updates.
+  const batches = [...groups.values()].flatMap((group) =>
+    chunk(group.ids, MAX_RECORDS_PER_MUTATION).map((ids) => ({ data: group.data, ids })),
+  );
+
+  for (const concurrentBatches of chunk(batches, MUTATION_CONCURRENCY)) {
+    await Promise.all(concurrentBatches.map((batch) => updateMany(batch.ids, batch.data)));
   }
 
   return updates.length;
