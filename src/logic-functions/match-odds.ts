@@ -1,7 +1,7 @@
 import { defineLogicFunction, RoutePayload } from 'twenty-sdk/define';
 
 import { PUNTOS_SHARED_PER_MATCH } from 'src/constants/tournament';
-import { createCoreApiClient, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { createCoreApiClient, fetchAllPages, PAGE_SIZE, round2 } from 'src/logic-functions/shared/api';
 import { getStageMultiplier } from 'src/logic-functions/shared/compute-puntos';
 import { teamPairKey } from 'src/logic-functions/shared/team-aliases';
 import { BetValue } from 'src/objects/bet.object';
@@ -41,6 +41,7 @@ type OutcomeUser = {
 };
 
 type OutcomeBets = {
+  ev: number | null;
   payout: number;
   probability: number | null;
   quote: number | null;
@@ -243,6 +244,10 @@ const fetchOutcomes = async (
     const winners = outcomeBets.length;
     const payout = winners > 0 ? Math.round(pot / winners) : 0;
     const probability = totalInverse > 0 ? inverseByOutcome[betValue] / totalInverse : null;
+    // Expected puntos for picking this outcome live: the pot share each winner
+    // gets, weighted by the live implied probability that it happens.
+    const ev =
+      probability !== null && winners > 0 ? round2(probability * (pot / winners)) : null;
 
     const scenarioTotals: RankTotals = new Map(
       [...baseTotals].map(([id, value]) => [id, { ...value }]),
@@ -272,6 +277,7 @@ const fetchOutcomes = async (
       .sort((a, b) => b.newPuntos - a.newPuntos || a.name.localeCompare(b.name));
 
     return {
+      ev,
       payout,
       probability,
       quote: quoteByOutcome[betValue],
