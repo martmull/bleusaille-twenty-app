@@ -12,6 +12,7 @@ permissions:
 
 env:
   TWENTY_DEPLOY_URL: ${{ vars.TWENTY_DEPLOY_URL }}
+  TWENTY_DEPLOY_API_KEY: ${{ secrets.TWENTY_DEPLOY_API_KEY }}
 
 concurrency:
   group: cd-${{ github.ref }}
@@ -47,8 +48,6 @@ jobs:
           --as ci
           --url "$TWENTY_DEPLOY_URL"
           --api-key "$TWENTY_DEPLOY_API_KEY"
-        env:
-          TWENTY_DEPLOY_API_KEY: ${{ secrets.TWENTY_DEPLOY_API_KEY }}
 
       - name: Publish app
         run: yarn twenty dev --once
