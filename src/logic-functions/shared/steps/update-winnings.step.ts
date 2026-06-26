@@ -1,5 +1,6 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
+import { NUMBER_OF_BETTORS } from 'src/constants/tournament';
 import { applyGroupedUpdates, fetchAllPages, PAGE_SIZE, round2 } from 'src/logic-functions/shared/api';
 import { computePotValueEur, fetchSpacexPriceUsd } from 'src/logic-functions/shared/pot';
 import { computeWinnings, WinningsGroup } from 'src/logic-functions/shared/winnings';
@@ -32,7 +33,7 @@ export const updateWinnings = async (
     fetchSpacexPriceUsd(),
   ]);
 
-  const potValueEur = computePotValueEur(priceUsd, people.length);
+  const potValueEur = computePotValueEur(priceUsd, NUMBER_OF_BETTORS);
 
   const idsByScore = new Map<number, string[]>();
   for (const person of people) {

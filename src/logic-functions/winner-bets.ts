@@ -42,7 +42,6 @@ const handler = async (): Promise<{ bets: WinnerBetGroup[] }> => {
     return page;
   });
 
-  const participantCount = people.length;
   const normalizeTeam = (team: string): string => team.trim().toLowerCase();
 
   const predictorsByTeam = new Map<string, number>();
@@ -74,7 +73,6 @@ const handler = async (): Promise<{ bets: WinnerBetGroup[] }> => {
   const bets: WinnerBetGroup[] = [...groupsByTeam.values()]
     .map((group) => {
       const pot = computeWinnerBetPot({
-        participantCount,
         predictorsForTeam: predictorsByTeam.get(normalizeTeam(group.team)) ?? 0,
       });
 

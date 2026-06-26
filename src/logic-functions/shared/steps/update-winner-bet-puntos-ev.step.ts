@@ -31,8 +31,6 @@ export const updateWinnerBetPuntosEv = async (
     return page;
   });
 
-  const participantCount = people.length;
-
   const predictorsByTeam = new Map<string, number>();
   for (const person of people) {
     if (person.wcWinnerBet) {
@@ -46,7 +44,6 @@ export const updateWinnerBetPuntosEv = async (
   for (const person of people) {
     const team = person.wcWinnerBet?.trim().toLowerCase();
     const ev = computeWinnerBetPuntosEv({
-      participantCount,
       predictorsForTeam: team ? (predictorsByTeam.get(team) ?? 0) : 0,
       victoryChancePct: person.victoryChance,
     });
@@ -64,5 +61,5 @@ export const updateWinnerBetPuntosEv = async (
     }),
   );
 
-  return { participants: participantCount, updated };
+  return { participants: people.length, updated };
 };
