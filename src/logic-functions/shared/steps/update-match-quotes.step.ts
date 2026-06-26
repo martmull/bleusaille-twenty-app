@@ -14,7 +14,7 @@ type MatchRecord = {
   home: string | null;
   away: string | null;
   startDate: string | null;
-  score: string | null;
+  result: string | null;
   homeQuote: number | null;
   drawQuote: number | null;
   awayQuote: number | null;
@@ -45,7 +45,7 @@ export const updateMatchQuotes = async (
               home: true,
               away: true,
               startDate: true,
-              score: true,
+              result: true,
               homeQuote: true,
               drawQuote: true,
               awayQuote: true,
@@ -77,22 +77,26 @@ export const updateMatchQuotes = async (
   const now = Date.now();
 
   for (const match of matches) {
-    const hasScore = Boolean(match.score);
+      const hasResult = Boolean(match.result);
 
     const chance =
-      !hasScore && match.home && match.away
+      !hasResult && match.home && match.away
         ? chancesByPair.get(teamPairKey(match.home, match.away))
         : undefined;
 
-    const homeQuote =
+    const freshHomeQuote =
       chance && match.home
         ? round2(chance.teamPrices.get(canonicalTeamName(match.home)) ?? 0) || null
         : null;
-    const awayQuote =
+    const freshAwayQuote =
       chance && match.away
         ? round2(chance.teamPrices.get(canonicalTeamName(match.away)) ?? 0) || null
         : null;
-    const drawQuote = chance ? round2(chance.drawPrice) || null : null;
+    const freshDrawQuote = chance ? round2(chance.drawPrice) || null : null;
+
+    const homeQuote = hasResult ? null : freshHomeQuote ?? match.homeQuote;
+    const awayQuote = hasResult ? null : freshAwayQuote ?? match.awayQuote;
+    const drawQuote = hasResult ? null : freshDrawQuote ?? match.drawQuote;
 
     if (chance) {
       withQuotes += 1;
