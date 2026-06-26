@@ -81,7 +81,7 @@ export const updateMatchQuotes = async (
       qualifyPairKeys.add(teamPairKey(match.home, match.away));
     }
   }
-  const qualifyByPair = qualifyChances ?? (await fetchMatchQualifyChances(qualifyPairKeys, client));
+  const qualifyByPair = qualifyChances ?? (await fetchMatchQualifyChances(qualifyPairKeys));
 
   const updates: Array<{
     id: string;

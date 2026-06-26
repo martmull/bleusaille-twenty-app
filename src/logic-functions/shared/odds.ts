@@ -1,6 +1,3 @@
-import type { CoreApiClient } from 'twenty-client-sdk/core';
-
-import { kvGet, kvSet } from 'src/logic-functions/shared/kv-store';
 import { notifyOddsApiKeyExpired } from 'src/logic-functions/shared/resend';
 import { canonicalTeamName, teamPairKey } from 'src/logic-functions/shared/team-aliases';
 
@@ -22,12 +19,6 @@ const PREFERRED_BOOKMAKER = 'betfair_ex_eu';
 // Bookmaker used for the knockout draw-no-bet (qualify) market.
 const DRAW_NO_BET_BOOKMAKER = 'williamhill';
 const DRAW_NO_BET_MARKET = 'draw_no_bet';
-// Each draw-no-bet event-odds request is billed by the-odds-api, so the result
-// is cached in the workspace KV store and reused for this long between runs.
-// (The events listing itself is free, so it is fetched fresh every run.)
-const QUALIFY_CACHE_TTL_MS = 60 * 60 * 1000;
-const qualifyCacheKey = (eventId: string): string => `cache:qualify-cote:${eventId}`;
-export type CachedQualify = { teamPrices: Record<string, number>; fetchedAt: number };
 
 type Outcome = { name: string; price: number };
 type Market = { key: string; outcomes: Outcome[] };
@@ -153,14 +144,9 @@ export type MatchQualifyChances = {
  * match requires its own event-odds request, so we first list the events to
  * resolve their ids, then only query the pairs we were asked about. Prices come
  * from William Hill when available, otherwise the first listed bookmaker.
- *
- * When a `client` is provided, each event's billed odds request is cached in
- * the workspace KV store for `QUALIFY_CACHE_TTL_MS`, so repeated runs reuse the
- * result instead of paying for it again.
  */
 export const fetchMatchQualifyChances = async (
   pairKeys: Set<string>,
-  client?: CoreApiClient,
 ): Promise<Map<string, MatchQualifyChances>> => {
   const byPair = new Map<string, MatchQualifyChances>();
 
@@ -180,21 +166,9 @@ export const fetchMatchQualifyChances = async (
     pairKeys.has(teamPairKey(event.home_team, event.away_team)),
   );
 
-  const now = Date.now();
-
   await Promise.all(
     targets.map(async (event) => {
       const pairKey = teamPairKey(event.home_team, event.away_team);
-      const cacheKey = qualifyCacheKey(event.id);
-
-      // Serve from the KV cache while the stored odds are still fresh.
-      if (client) {
-        const cached = await kvGet<CachedQualify>(client, cacheKey);
-        if (cached && now - cached.fetchedAt < QUALIFY_CACHE_TTL_MS) {
-          byPair.set(pairKey, { teamPrices: new Map(Object.entries(cached.teamPrices)) });
-          return;
-        }
-      }
 
       const oddsUrl = eventDrawNoBetUrl(event.id);
       const oddsResponse = await fetch(oddsUrl);
@@ -227,10 +201,6 @@ export const fetchMatchQualifyChances = async (
 
       if (Object.keys(teamPrices).length > 0) {
         byPair.set(pairKey, { teamPrices: new Map(Object.entries(teamPrices)) });
-
-        if (client) {
-          await kvSet(client, cacheKey, { teamPrices, fetchedAt: now } satisfies CachedQualify);
-        }
       }
     }),
   );

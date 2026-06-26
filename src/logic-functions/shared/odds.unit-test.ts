@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { InMemoryCoreClient } from 'src/__tests__/in-memory-core-client';
-import {
-  type CachedQualify,
-  fetchMatchQualifyChances,
-} from 'src/logic-functions/shared/odds';
+import { fetchMatchQualifyChances } from 'src/logic-functions/shared/odds';
 import { canonicalTeamName, teamPairKey } from 'src/logic-functions/shared/team-aliases';
 
 type DrawNoBetEvent = {
@@ -73,7 +69,6 @@ const NO_DRAW_NO_BET_MARKET: DrawNoBetEvent = {
 const saCanadaPair = teamPairKey('South Africa', 'Canada');
 const saKey = canonicalTeamName('South Africa');
 const canadaKey = canonicalTeamName('Canada');
-const cacheKey = (eventId: string) => `cache:qualify-cote:${eventId}`;
 
 const stubFetch = (oddsById: Record<string, DrawNoBetEvent>) => {
   const fetchMock = vi.fn(async (url: string) => {
@@ -178,60 +173,5 @@ describe('fetchMatchQualifyChances', () => {
     const result = await fetchMatchQualifyChances(new Set([saCanadaPair]));
 
     expect(result.size).toBe(0);
-  });
-
-  it('does not write to the cache when no qualify odds are found', async () => {
-    const client = new InMemoryCoreClient();
-    stubFetch({ [SA_CANADA_ID]: NO_BOOKMAKERS });
-
-    await fetchMatchQualifyChances(new Set([saCanadaPair]), client.asClient());
-
-    expect(client.rows.has(cacheKey(SA_CANADA_ID))).toBe(false);
-  });
-
-  it('caches the fetched odds in the KV store with a fetched-at timestamp', async () => {
-    const client = new InMemoryCoreClient();
-    stubFetch({ [SA_CANADA_ID]: SA_CANADA_ODDS });
-
-    await fetchMatchQualifyChances(new Set([saCanadaPair]), client.asClient());
-
-    const cached = client.rows.get(cacheKey(SA_CANADA_ID))?.value as CachedQualify | undefined;
-    expect(cached?.teamPrices).toEqual({ [saKey]: 3.75, [canadaKey]: 1.25 });
-    expect(typeof cached?.fetchedAt).toBe('number');
-  });
-
-  it('serves fresh cached odds without calling the paid odds endpoint', async () => {
-    const client = new InMemoryCoreClient();
-    client.seed(cacheKey(SA_CANADA_ID), {
-      teamPrices: { [saKey]: 9.99, [canadaKey]: 1.11 },
-      fetchedAt: Date.now(),
-    });
-    const fetchMock = stubFetch({ [SA_CANADA_ID]: SA_CANADA_ODDS });
-
-    const result = await fetchMatchQualifyChances(new Set([saCanadaPair]), client.asClient());
-
-    // Value comes from the cache, not the (distinct) live odds.
-    expect(result.get(saCanadaPair)?.teamPrices.get(saKey)).toBe(9.99);
-    expect(oddsRequestedFor(fetchMock, SA_CANADA_ID)).toBe(false);
-    // The (free) events listing is still fetched.
-    expect(fetchMock).toHaveBeenCalled();
-  });
-
-  it('refetches and overwrites the cache when the cached odds are stale', async () => {
-    const client = new InMemoryCoreClient();
-    const twoHoursMs = 2 * 60 * 60 * 1000;
-    client.seed(cacheKey(SA_CANADA_ID), {
-      teamPrices: { [saKey]: 9.99, [canadaKey]: 1.11 },
-      fetchedAt: Date.now() - twoHoursMs,
-    });
-    const fetchMock = stubFetch({ [SA_CANADA_ID]: SA_CANADA_ODDS });
-
-    const result = await fetchMatchQualifyChances(new Set([saCanadaPair]), client.asClient());
-
-    expect(result.get(saCanadaPair)?.teamPrices.get(saKey)).toBe(3.75);
-    expect(oddsRequestedFor(fetchMock, SA_CANADA_ID)).toBe(true);
-
-    const cached = client.rows.get(cacheKey(SA_CANADA_ID))?.value as CachedQualify | undefined;
-    expect(cached?.teamPrices[saKey]).toBe(3.75);
   });
 });
