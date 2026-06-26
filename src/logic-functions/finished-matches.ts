@@ -13,7 +13,7 @@ type MatchRecord = {
 
 type WinningBetRecord = {
   puntos: number | null;
-  person: { id: string | null; name: { firstName: string | null } | null; puntos: number | null } | null;
+  person: { id: string | null; name: { firstName: string | null } | null } | null;
   match: { id: string | null } | null;
 };
 
@@ -70,7 +70,7 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
           edges: {
             node: {
               puntos: true,
-              person: { id: true, name: { firstName: true }, puntos: true },
+              person: { id: true, name: { firstName: true } },
               match: { id: true },
             },
           },
@@ -91,7 +91,7 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
     }),
   ]);
 
-  type RawWinner = { name: string; totalPuntos: number; personId: string; matchPuntos: number };
+  type RawWinner = { name: string; personId: string; matchPuntos: number };
 
   const winnersByMatch = new Map<string, { winners: RawWinner[]; puntos: number }>();
   for (const bet of winningBets) {
@@ -104,7 +104,6 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
     const entry = winnersByMatch.get(matchId) ?? { winners: [], puntos: 0 };
     entry.winners.push({
       name,
-      totalPuntos: bet.person?.puntos ?? 0,
       personId,
       matchPuntos: bet.puntos ?? 0,
     });
@@ -197,7 +196,7 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
             const beforeRank = beforeRanks.get(winner.personId) ?? newRank;
             return {
               name: winner.name,
-              totalPuntos: winner.totalPuntos,
+              totalPuntos: afterTotals.get(winner.personId)?.total ?? 0,
               newRank,
               rankDelta: beforeRank - newRank,
             };
