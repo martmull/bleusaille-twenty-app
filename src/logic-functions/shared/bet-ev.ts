@@ -30,3 +30,29 @@ export const computeBetEv = ({
 
   return round2(pickProbability * (pot / winnersForPick));
 };
+
+export type BetPuntevsInput = {
+  // How many bettors share this bet's predicted outcome (includes this bet).
+  winnersForPick: number;
+  // Live implied probability (0-1) of this bet's predicted outcome.
+  pickProbability: number | null;
+};
+
+/**
+ * Expected puntos for a bet using the flat shared pot (170) split across
+ * everyone who picked the same outcome, weighted by the live odds it happens:
+ *
+ *   probBetWin * 170 / nbBettorsOnThisBet
+ *
+ * Edit this function to tweak the formula.
+ */
+export const computeBetPuntevs = ({
+  winnersForPick,
+  pickProbability,
+}: BetPuntevsInput): number | null => {
+  if (pickProbability === null || winnersForPick === 0) {
+    return null;
+  }
+
+  return round2(pickProbability * (PUNTOS_SHARED_PER_MATCH / winnersForPick));
+};

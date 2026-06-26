@@ -1,7 +1,7 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
 import { applyGroupedUpdates, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
-import { computeBetEv } from 'src/logic-functions/shared/bet-ev';
+import { computeBetEv, computeBetPuntevs } from 'src/logic-functions/shared/bet-ev';
 import { fetchMatchResultChances, MatchResultChances } from 'src/logic-functions/shared/odds';
 import { canonicalTeamName, teamPairKey } from 'src/logic-functions/shared/team-aliases';
 import { BetValue } from 'src/objects/bet.object';
@@ -10,6 +10,7 @@ type BetRecord = {
   id: string;
   betValue: string;
   ev: number | null;
+  puntevs: number | null;
   match: {
     id: string | null;
     home: string | null;
@@ -56,6 +57,7 @@ export const updateBetEv = async (
               id: true,
               betValue: true,
               ev: true,
+              puntevs: true,
               match: { id: true, home: true, away: true, stage: true, result: true },
             },
           },
@@ -79,7 +81,7 @@ export const updateBetEv = async (
   }
 
   const matchesWithOdds = new Set<string>();
-  const updates: Array<{ id: string; data: { ev: number | null } }> = [];
+  const updates: Array<{ id: string; data: { ev: number | null; puntevs: number | null } }> = [];
 
   for (const bet of bets) {
     const match = bet.match;
@@ -100,19 +102,26 @@ export const updateBetEv = async (
             const winnersForPick = matchBets.filter(
               (other) => other.betValue === bet.betValue,
             ).length;
-            return computeBetEv({
-              stage: match.stage,
-              winnersForPick,
-              pickProbability: pickProbability(bet.betValue, match, chances),
-            });
+            const pickProb = pickProbability(bet.betValue, match, chances);
+            return {
+              ev: computeBetEv({
+                stage: match.stage,
+                winnersForPick,
+                pickProbability: pickProb,
+              }),
+              puntevs: computeBetPuntevs({ winnersForPick, pickProbability: pickProb }),
+            };
           })()
         : null;
 
-    if (bet.ev === target) {
+    const targetEv = target?.ev ?? null;
+    const targetPuntevs = target?.puntevs ?? null;
+
+    if (bet.ev === targetEv && bet.puntevs === targetPuntevs) {
       continue;
     }
 
-    updates.push({ id: bet.id, data: { ev: target } });
+    updates.push({ id: bet.id, data: { ev: targetEv, puntevs: targetPuntevs } });
   }
 
   const updated = await applyGroupedUpdates(updates, (ids, data) =>

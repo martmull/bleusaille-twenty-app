@@ -3,7 +3,11 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 import { applyGroupedUpdates, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
 import { computePuntos, PuntosBet } from 'src/logic-functions/shared/compute-puntos';
 
-type BetRecord = PuntosBet & { puntos: number | null; ev: number | null };
+type BetRecord = PuntosBet & {
+  puntos: number | null;
+  ev: number | null;
+  puntevs: number | null;
+};
 
 export type ComputePuntosResult = {
   evaluated: number;
@@ -22,6 +26,7 @@ export const computeBetsPuntos = async (client: CoreApiClient): Promise<ComputeP
             won: true,
             puntos: true,
             ev: true,
+            puntevs: true,
             match: { id: true, result: true, stage: true },
           },
         },
@@ -31,7 +36,7 @@ export const computeBetsPuntos = async (client: CoreApiClient): Promise<ComputeP
     return page;
   });
 
-  const updates: Array<{ id: string; data: { puntos: number; ev: null } }> = [];
+  const updates: Array<{ id: string; data: { puntos: number; ev: null; puntevs: null } }> = [];
 
   for (const bet of bets) {
     if (!bet.match?.result) {
@@ -40,11 +45,11 @@ export const computeBetsPuntos = async (client: CoreApiClient): Promise<ComputeP
 
     const puntos = computePuntos(bet, bets);
 
-    if (bet.puntos === puntos && bet.ev === null) {
+    if (bet.puntos === puntos && bet.ev === null && bet.puntevs === null) {
       continue;
     }
 
-    updates.push({ id: bet.id, data: { puntos, ev: null } });
+    updates.push({ id: bet.id, data: { puntos, ev: null, puntevs: null } });
   }
 
   const updated = await applyGroupedUpdates(updates, (ids, data) =>
