@@ -5,6 +5,7 @@ import {
   PageLayoutTabLayoutMode,
 } from 'twenty-sdk/define';
 
+import { PODIUM_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/podium';
 import { MATCH_ON_BET_FIELD_UNIVERSAL_IDENTIFIER } from 'src/fields/match-on-bet.field';
 import { PERSON_ON_BET_FIELD_UNIVERSAL_IDENTIFIER } from 'src/fields/person-on-bet.field';
 import {
@@ -54,6 +55,22 @@ export default definePageLayout({
             isStacked: false,
             displayDataLabel: false,
             displayLegend: false,
+          },
+        },
+        {
+          universalIdentifier: '133e87e9-aed4-484e-acae-deee73996169',
+          title: 'Podium',
+          type: 'FRONT_COMPONENT',
+          gridPosition: {
+            row: 0,
+            column: 7,
+            rowSpan: 4,
+            columnSpan: 5,
+          },
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier:
+              PODIUM_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
           },
         },
       ],
