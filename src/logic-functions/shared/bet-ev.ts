@@ -24,5 +24,5 @@ export const computeBetPuntevs = ({
     return null;
   }
 
-  return round2(pickProbability * (PUNTOS_SHARED_PER_MATCH / winnersForPick));
+  return pickProbability * (PUNTOS_SHARED_PER_MATCH / winnersForPick);
 };
