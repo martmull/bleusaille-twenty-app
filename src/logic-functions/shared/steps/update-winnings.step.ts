@@ -1,7 +1,12 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
 import { NUMBER_OF_BETTORS } from 'src/constants/tournament';
-import { applyGroupedUpdates, fetchAllRecords, round2 } from 'src/logic-functions/shared/api';
+import {
+  applyGroupedUpdates,
+  buildFieldUpdates,
+  fetchAllRecords,
+  round2,
+} from 'src/logic-functions/shared/api';
 import { computePotValueEur, fetchSpacexPriceUsd } from 'src/logic-functions/shared/pot';
 import { computeWinnings, WinningsGroup } from 'src/logic-functions/shared/winnings';
 
@@ -44,17 +49,12 @@ export const updateWinnings = async (
 
   const winningsById = computeWinnings(potValueEur, groups);
 
-  const updates: Array<{ id: string; data: { winnings: number | null } }> = [];
-
-  for (const person of people) {
-    const target = winningsById.get(person.id) ?? null;
-
-    if (person.winnings === target) {
-      continue;
-    }
-
-    updates.push({ id: person.id, data: { winnings: target } });
-  }
+  const updates = buildFieldUpdates(
+    people,
+    'winnings',
+    (person) => person.winnings,
+    (person) => winningsById.get(person.id) ?? null,
+  );
 
   const updated = await applyGroupedUpdates(updates, (ids, data) =>
     client.mutation({

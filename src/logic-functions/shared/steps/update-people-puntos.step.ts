@@ -1,6 +1,10 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
-import { applyGroupedUpdates, fetchAllRecords } from 'src/logic-functions/shared/api';
+import {
+  applyGroupedUpdates,
+  buildFieldUpdates,
+  fetchAllRecords,
+} from 'src/logic-functions/shared/api';
 
 type EvolutionRecord = { points: number | null; person: { id: string } | null };
 type PersonRecord = { id: string; puntos: number | null };
@@ -30,21 +34,14 @@ export const updatePeoplePuntos = async (
     puntosByPersonId.set(personId, (puntosByPersonId.get(personId) ?? 0) + (evolution.points ?? 0));
   }
 
-  const updates: Array<{ id: string; data: { puntos: number } }> = [];
-
-  for (const person of people) {
-    if (!puntosByPersonId.has(person.id)) {
-      continue;
-    }
-
-    const puntos = puntosByPersonId.get(person.id) as number;
-
-    if (person.puntos === puntos) {
-      continue;
-    }
-
-    updates.push({ id: person.id, data: { puntos } });
-  }
+  // People absent from the evolutions map keep their current puntos, so skip
+  // them (undefined) rather than writing a value.
+  const updates = buildFieldUpdates(
+    people,
+    'puntos',
+    (person) => person.puntos,
+    (person) => puntosByPersonId.get(person.id),
+  );
 
   const updated = await applyGroupedUpdates(updates, (ids, data) =>
     client.mutation({

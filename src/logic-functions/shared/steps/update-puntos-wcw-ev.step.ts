@@ -1,6 +1,11 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
-import { applyGroupedUpdates, fetchAllRecords, round2 } from 'src/logic-functions/shared/api';
+import {
+  applyGroupedUpdates,
+  buildFieldUpdates,
+  fetchAllRecords,
+  round2,
+} from 'src/logic-functions/shared/api';
 
 type PersonRecord = {
   id: string;
@@ -24,20 +29,15 @@ export const updatePuntosWcwEv = async (
     puntosWcwEv: true,
   });
 
-  const updates: Array<{ id: string; data: { puntosWcwEv: number | null } }> = [];
-
-  for (const person of people) {
-    const target =
+  const updates = buildFieldUpdates(
+    people,
+    'puntosWcwEv',
+    (person) => person.puntosWcwEv,
+    (person) =>
       person.puntos === null && person.winnerBetPuntosEv === null
         ? null
-        : round2((person.puntos ?? 0) + (person.winnerBetPuntosEv ?? 0));
-
-    if (person.puntosWcwEv === target) {
-      continue;
-    }
-
-    updates.push({ id: person.id, data: { puntosWcwEv: target } });
-  }
+        : round2((person.puntos ?? 0) + (person.winnerBetPuntosEv ?? 0)),
+  );
 
   const updated = await applyGroupedUpdates(updates, (ids, data) =>
     client.mutation({

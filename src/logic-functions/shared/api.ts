@@ -126,6 +126,29 @@ export const buildMatchTripleUpdates = <R extends { id: string; startDate: strin
   return updates;
 };
 
+// Shared diff tail for the per-record "recompute one field, write only the rows
+// that change" steps. targetOf returns undefined to skip a record entirely
+// (e.g. people absent from a lookup map), distinct from null which is a written
+// value. Returns the changed records ready for applyGroupedUpdates.
+export const buildFieldUpdates = <TRecord extends { id: string }, TValue>(
+  records: TRecord[],
+  field: string,
+  currentOf: (record: TRecord) => TValue | null,
+  targetOf: (record: TRecord) => TValue | null | undefined,
+): Array<{ id: string; data: Record<string, TValue | null> }> => {
+  const updates: Array<{ id: string; data: Record<string, TValue | null> }> = [];
+
+  for (const record of records) {
+    const target = targetOf(record);
+    if (target === undefined || currentOf(record) === target) {
+      continue;
+    }
+    updates.push({ id: record.id, data: { [field]: target } });
+  }
+
+  return updates;
+};
+
 type RecordUpdate<Data> = { id: string; data: Data };
 
 export const applyGroupedUpdates = async <Data>(
