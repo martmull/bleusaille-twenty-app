@@ -1,6 +1,7 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
 import { createCoreApiClient, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { cloneTotals, computeRanks, RankTotals } from 'src/logic-functions/shared/leaderboard';
 
 type MatchRecord = {
   id: string;
@@ -28,8 +29,6 @@ type Winner = {
   newRank: number;
   rankDelta: number;
 };
-
-type RankTotals = Map<string, { firstName: string; total: number }>;
 
 type FinishedMatch = {
   home: string;
@@ -119,15 +118,6 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
     }
   }
 
-  const computeRanks = (totals: RankTotals): Map<string, number> => {
-    const sorted = [...totals.entries()].sort(
-      (a, b) => b[1].total - a[1].total || a[1].firstName.localeCompare(b[1].firstName),
-    );
-    const ranks = new Map<string, number>();
-    sorted.forEach(([id], index) => ranks.set(id, index + 1));
-    return ranks;
-  };
-
   const matchEndMsById = new Map<string, number>();
   for (const match of matches) {
     if (match.id) {
@@ -179,9 +169,7 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
         const afterTotals = totalsUpTo(cutoffMs);
         const afterRanks = computeRanks(afterTotals);
 
-        const beforeTotals: RankTotals = new Map(
-          [...afterTotals.entries()].map(([id, value]) => [id, { ...value }]),
-        );
+        const beforeTotals = cloneTotals(afterTotals);
         for (const winner of rawWinners) {
           const total = beforeTotals.get(winner.personId);
           if (total) {
