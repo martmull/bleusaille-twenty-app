@@ -3,16 +3,21 @@ import {
   definePageLayout,
   ObjectRecordGroupByDateGranularity,
   PageLayoutTabLayoutMode,
+  STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS,
 } from 'twenty-sdk/define';
 
 import { FINISHED_MATCHES_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/finished-matches';
 import { PODIUM_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/podium';
+import { SPACEX_PRICE_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/spacex-price';
+import { WINNER_BETS_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/winner-bets';
 import { MATCH_ON_BET_FIELD_UNIVERSAL_IDENTIFIER } from 'src/fields/match-on-bet.field';
 import { PERSON_ON_BET_FIELD_UNIVERSAL_IDENTIFIER } from 'src/fields/person-on-bet.field';
 import {
   BET_OBJECT_UNIVERSAL_IDENTIFIER,
   BET_PUNTOS_FIELD_UNIVERSAL_IDENTIFIER,
 } from 'src/objects/bet.object';
+import { LEADERBOARD_WCW_EV_VIEW_UNIVERSAL_IDENTIFIER } from 'src/views/leaderboard-wcw-ev.view';
+import { LEADERBOARD_VIEW_UNIVERSAL_IDENTIFIER } from 'src/views/leaderboard.view';
 
 export const BLEUSAILLE_PAGE_LAYOUT_UNIVERSAL_IDENTIFIER =
   'a0463b53-6d88-4e0f-aa15-d0bea19b5a4c';
@@ -88,6 +93,72 @@ export default definePageLayout({
             configurationType: 'FRONT_COMPONENT',
             frontComponentUniversalIdentifier:
               FINISHED_MATCHES_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
+          },
+        },
+        {
+          universalIdentifier: '6c488ea1-d025-40c0-9c90-15150e653d72',
+          title: 'Leaderboard',
+          type: 'RECORD_TABLE',
+          objectUniversalIdentifier:
+            STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
+          gridPosition: {
+            row: 8,
+            column: 0,
+            rowSpan: 13,
+            columnSpan: 4,
+          },
+          configuration: {
+            configurationType: 'RECORD_TABLE',
+            viewId: LEADERBOARD_VIEW_UNIVERSAL_IDENTIFIER,
+          },
+        },
+        {
+          universalIdentifier: '6dd1d37c-2893-45d7-b893-07095e378626',
+          title: 'Leaderboard + wcw ev',
+          type: 'RECORD_TABLE',
+          objectUniversalIdentifier:
+            STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
+          gridPosition: {
+            row: 8,
+            column: 4,
+            rowSpan: 13,
+            columnSpan: 3,
+          },
+          configuration: {
+            configurationType: 'RECORD_TABLE',
+            viewId: LEADERBOARD_WCW_EV_VIEW_UNIVERSAL_IDENTIFIER,
+          },
+        },
+        {
+          universalIdentifier: '5c213c3c-a483-4310-80e5-5c472aa17968',
+          title: 'WinnerBets',
+          type: 'FRONT_COMPONENT',
+          gridPosition: {
+            row: 21,
+            column: 0,
+            rowSpan: 8,
+            columnSpan: 7,
+          },
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier:
+              WINNER_BETS_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
+          },
+        },
+        {
+          universalIdentifier: '327657bf-50f7-4cc6-9f9d-b2244d5d1102',
+          title: 'POT',
+          type: 'FRONT_COMPONENT',
+          gridPosition: {
+            row: 21,
+            column: 7,
+            rowSpan: 8,
+            columnSpan: 5,
+          },
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier:
+              SPACEX_PRICE_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
           },
         },
       ],
