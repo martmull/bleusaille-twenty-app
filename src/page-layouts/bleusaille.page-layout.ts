@@ -105,7 +105,7 @@ export default definePageLayout({
             row: 8,
             column: 0,
             rowSpan: 13,
-            columnSpan: 4,
+            columnSpan: 2,
           },
           configuration: {
             configurationType: 'RECORD_TABLE',
@@ -120,9 +120,9 @@ export default definePageLayout({
             STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
           gridPosition: {
             row: 8,
-            column: 4,
+            column: 2,
             rowSpan: 13,
-            columnSpan: 3,
+            columnSpan: 2,
           },
           configuration: {
             configurationType: 'RECORD_TABLE',

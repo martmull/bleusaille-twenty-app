@@ -25,6 +25,7 @@ export default defineView({
           .universalIdentifier,
       position: 0,
       isVisible: true,
+      size: 140,
     },
     {
       universalIdentifier: '478375f4-c9ee-4f9b-a64d-580266a10975',
