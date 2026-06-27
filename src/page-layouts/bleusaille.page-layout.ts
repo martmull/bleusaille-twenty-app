@@ -16,6 +16,7 @@ import {
   BET_OBJECT_UNIVERSAL_IDENTIFIER,
   BET_PUNTOS_FIELD_UNIVERSAL_IDENTIFIER,
 } from 'src/objects/bet.object';
+import { LEADERBOARD_PUNTEVS_VIEW_UNIVERSAL_IDENTIFIER } from 'src/views/leaderboard-puntevs.view';
 import { LEADERBOARD_WCW_EV_VIEW_UNIVERSAL_IDENTIFIER } from 'src/views/leaderboard-wcw-ev.view';
 import { LEADERBOARD_VIEW_UNIVERSAL_IDENTIFIER } from 'src/views/leaderboard.view';
 
@@ -127,6 +128,23 @@ export default definePageLayout({
           configuration: {
             configurationType: 'RECORD_TABLE',
             viewId: LEADERBOARD_WCW_EV_VIEW_UNIVERSAL_IDENTIFIER,
+          },
+        },
+        {
+          universalIdentifier: '8b6f1c4d-9a2e-4f30-bd71-2c5e0a4f9d83',
+          title: 'Leaderboard puntevs',
+          type: 'RECORD_TABLE',
+          objectUniversalIdentifier:
+            STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
+          gridPosition: {
+            row: 8,
+            column: 4,
+            rowSpan: 13,
+            columnSpan: 2,
+          },
+          configuration: {
+            configurationType: 'RECORD_TABLE',
+            viewId: LEADERBOARD_PUNTEVS_VIEW_UNIVERSAL_IDENTIFIER,
           },
         },
         {
