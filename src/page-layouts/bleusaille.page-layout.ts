@@ -7,6 +7,7 @@ import {
 } from 'twenty-sdk/define';
 
 import { FINISHED_MATCHES_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/finished-matches';
+import { LIVE_MATCH_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/live-match';
 import { PODIUM_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/podium';
 import { SPACEX_PRICE_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/spacex-price';
 import { WINNER_BETS_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/winner-bets';
@@ -206,6 +207,31 @@ export default definePageLayout({
             configurationType: 'FRONT_COMPONENT',
             frontComponentUniversalIdentifier:
             WINNER_BETS_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
+          },
+        },
+      ],
+    },
+    {
+      universalIdentifier: '9e8e98e5-6e0a-4e39-b7f9-6ee1d9c14747',
+      title: 'Live',
+      position: 1,
+      icon: 'IconBallFootball',
+      layoutMode: PageLayoutTabLayoutMode.GRID,
+      widgets: [
+        {
+          universalIdentifier: '80b9b5ed-0ce5-4fca-b332-711aba23a26a',
+          title: 'Live match',
+          type: 'FRONT_COMPONENT',
+          gridPosition: {
+            row: 0,
+            column: 0,
+            rowSpan: 19,
+            columnSpan: 9,
+          },
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier:
+              LIVE_MATCH_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
           },
         },
       ],
