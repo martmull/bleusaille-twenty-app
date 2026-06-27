@@ -29,7 +29,6 @@ export default definePageLayout({
   universalIdentifier: BLEUSAILLE_PAGE_LAYOUT_UNIVERSAL_IDENTIFIER,
   name: 'Bleusaille',
   type: 'STANDALONE_PAGE',
-  defaultTabToFocusOnMobileAndSidePanelUniversalIdentifier: 'fc753665-d6d8-4592-b637-efbc6bbcf235',
   tabs: [
     {
       universalIdentifier: 'fc753665-d6d8-4592-b637-efbc6bbcf235',
