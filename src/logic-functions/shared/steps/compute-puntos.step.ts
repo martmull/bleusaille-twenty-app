@@ -75,6 +75,19 @@ export const computeBetsPuntos = async (client: CoreApiClient): Promise<ComputeP
     },
   });
 
+  // How many bettors picked each (match, outcome) pair: the pot is shared
+  // between them, so this weights the expected puntos. Built once to avoid an
+  // O(n^2) re-scan of every bet inside the loop below.
+  const winnersByPick = new Map<string, number>();
+  for (const bet of bets) {
+    const matchId = bet.match?.id;
+    if (!matchId) {
+      continue;
+    }
+    const key = `${matchId}|${bet.betValue}`;
+    winnersByPick.set(key, (winnersByPick.get(key) ?? 0) + 1);
+  }
+
   const updates: Array<{ id: string; data: { puntos: number; puntevs: number | null } }> = [];
 
   for (const bet of bets) {
@@ -84,11 +97,7 @@ export const computeBetsPuntos = async (client: CoreApiClient): Promise<ComputeP
 
     const puntos = computePuntos(bet, bets);
 
-    // How many bettors picked the same outcome as this bet (the pot is shared
-    // between them), used to weight the expected puntos.
-    const winnersForPick = bets.filter(
-      (other) => other.match?.id === bet.match?.id && other.betValue === bet.betValue,
-    ).length;
+    const winnersForPick = winnersByPick.get(`${bet.match.id}|${bet.betValue}`) ?? 0;
 
     const puntevs = computeBetPuntevs({
       winnersForPick,
