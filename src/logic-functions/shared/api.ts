@@ -52,6 +52,58 @@ export const MUTATION_CONCURRENCY = 25;
 // A single mutation can update at most this many records (server-enforced).
 export const MAX_RECORDS_PER_MUTATION = 200;
 
+type MatchTriple = { home: number | null; draw: number | null; away: number | null };
+
+type MatchTripleFields = {
+  live: readonly [string, string, string];
+  prematch: readonly [string, string, string];
+};
+
+// Shared scaffolding for the match quote/breakeven steps: recompute a
+// home/draw/away triple per match, write it to the live fields, and mirror it
+// onto the prematch fields while the match is still upcoming. Only matches whose
+// live or prematch values actually change are returned, ready for
+// applyGroupedUpdates.
+export const buildMatchTripleUpdates = <R extends { id: string; startDate: string | null }>(
+  matches: R[],
+  fields: MatchTripleFields,
+  compute: (match: R) => MatchTriple,
+  now: number,
+): Array<{ id: string; data: Record<string, number | null> }> => {
+  const [liveHome, liveDraw, liveAway] = fields.live;
+  const [preHome, preDraw, preAway] = fields.prematch;
+  const updates: Array<{ id: string; data: Record<string, number | null> }> = [];
+
+  for (const match of matches) {
+    const { home, draw, away } = compute(match);
+    const current = match as Record<string, unknown>;
+
+    const liveChanged =
+      current[liveHome] !== home || current[liveDraw] !== draw || current[liveAway] !== away;
+
+    const isUpcoming = match.startDate ? new Date(match.startDate).getTime() > now : false;
+    const prematchChanged =
+      isUpcoming &&
+      (current[preHome] !== home || current[preDraw] !== draw || current[preAway] !== away);
+
+    if (!liveChanged && !prematchChanged) {
+      continue;
+    }
+
+    updates.push({
+      id: match.id,
+      data: {
+        [liveHome]: home,
+        [liveDraw]: draw,
+        [liveAway]: away,
+        ...(isUpcoming ? { [preHome]: home, [preDraw]: draw, [preAway]: away } : {}),
+      },
+    });
+  }
+
+  return updates;
+};
+
 type RecordUpdate<Data> = { id: string; data: Data };
 
 export const applyGroupedUpdates = async <Data>(

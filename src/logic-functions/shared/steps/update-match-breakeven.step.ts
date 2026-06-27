@@ -1,7 +1,12 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
 import { NUMBER_OF_BETTORS } from 'src/constants/tournament';
-import { applyGroupedUpdates, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import {
+  applyGroupedUpdates,
+  buildMatchTripleUpdates,
+  fetchAllPages,
+  PAGE_SIZE,
+} from 'src/logic-functions/shared/api';
 import { computeBreakeven } from 'src/logic-functions/shared/match-breakeven';
 
 type MatchRecord = {
@@ -57,60 +62,22 @@ export const updateMatchBreakeven = async (
   // people on every run.
   const totalBets = NUMBER_OF_BETTORS;
 
-  const updates: Array<{
-    id: string;
-    data: {
-      homeBreakeven: number | null;
-      drawBreakeven: number | null;
-      awayBreakeven: number | null;
-      prematchHomeBreakeven?: number | null;
-      prematchDrawBreakeven?: number | null;
-      prematchAwayBreakeven?: number | null;
-    };
-  }> = [];
-
-  const now = Date.now();
-
-  for (const match of matches) {
-    const hasResult = Boolean(match.result);
-
-    const homeBreakeven = hasResult ? null : computeBreakeven(totalBets, match.homeQuote);
-    const drawBreakeven = hasResult ? null : computeBreakeven(totalBets, match.drawQuote);
-    const awayBreakeven = hasResult ? null : computeBreakeven(totalBets, match.awayQuote);
-
-    const isUpcoming = match.startDate ? new Date(match.startDate).getTime() > now : false;
-
-    const prematchChanged =
-      isUpcoming &&
-      (match.prematchHomeBreakeven !== homeBreakeven ||
-        match.prematchDrawBreakeven !== drawBreakeven ||
-        match.prematchAwayBreakeven !== awayBreakeven);
-
-    const breakevenChanged =
-      match.homeBreakeven !== homeBreakeven ||
-      match.drawBreakeven !== drawBreakeven ||
-      match.awayBreakeven !== awayBreakeven;
-
-    if (!breakevenChanged && !prematchChanged) {
-      continue;
-    }
-
-    updates.push({
-      id: match.id,
-      data: {
-        homeBreakeven,
-        drawBreakeven,
-        awayBreakeven,
-        ...(isUpcoming
-          ? {
-              prematchHomeBreakeven: homeBreakeven,
-              prematchDrawBreakeven: drawBreakeven,
-              prematchAwayBreakeven: awayBreakeven,
-            }
-          : {}),
-      },
-    });
-  }
+  const updates = buildMatchTripleUpdates(
+    matches,
+    {
+      live: ['homeBreakeven', 'drawBreakeven', 'awayBreakeven'],
+      prematch: ['prematchHomeBreakeven', 'prematchDrawBreakeven', 'prematchAwayBreakeven'],
+    },
+    (match) => {
+      const hasResult = Boolean(match.result);
+      return {
+        home: hasResult ? null : computeBreakeven(totalBets, match.homeQuote),
+        draw: hasResult ? null : computeBreakeven(totalBets, match.drawQuote),
+        away: hasResult ? null : computeBreakeven(totalBets, match.awayQuote),
+      };
+    },
+    Date.now(),
+  );
 
   const updated = await applyGroupedUpdates(updates, (ids, data) =>
     client.mutation({

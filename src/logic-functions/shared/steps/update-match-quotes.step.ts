@@ -2,6 +2,7 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 
 import {
   applyGroupedUpdates,
+  buildMatchTripleUpdates,
   fetchAllPages,
   PAGE_SIZE,
   round2,
@@ -83,110 +84,74 @@ export const updateMatchQuotes = async (
   }
   const qualifyByPair = qualifyChances ?? (await fetchMatchQualifyChances(qualifyPairKeys));
 
-  const updates: Array<{
-    id: string;
-    data: {
-      homeQuote: number | null;
-      drawQuote: number | null;
-      awayQuote: number | null;
-      prematchHomeCote?: number | null;
-      prematchDrawCote?: number | null;
-      prematchAwayCote?: number | null;
-    };
-  }> = [];
   let withQuotes = 0;
 
-  const now = Date.now();
+  const updates = buildMatchTripleUpdates(
+    matches,
+    {
+      live: ['homeQuote', 'drawQuote', 'awayQuote'],
+      prematch: ['prematchHomeCote', 'prematchDrawCote', 'prematchAwayCote'],
+    },
+    (match) => {
+      const hasResult = Boolean(match.result);
+      const pairKey = match.home && match.away ? teamPairKey(match.home, match.away) : null;
 
-  for (const match of matches) {
-    const hasResult = Boolean(match.result);
-    const pairKey = match.home && match.away ? teamPairKey(match.home, match.away) : null;
+      let homeQuote: number | null = null;
+      let awayQuote: number | null = null;
+      let drawQuote: number | null = null;
+      let hasQuotes = false;
 
-    let homeQuote: number | null = null;
-    let awayQuote: number | null = null;
-    let drawQuote: number | null = null;
-    let hasQuotes = false;
+      // Finished matches (those with a result) keep no live cotes. Otherwise we
+      // fetch fresh ones but fall back to the last known cote when none is
+      // available, so quotes don't disappear mid-match.
+      if (!hasResult && pairKey) {
+        if (isPoolStage(match.stage)) {
+          // Pool (group-stage) matches can end in a draw, so we keep the
+          // three-way home/draw/away cotes.
+          const chance = chancesByPair.get(pairKey);
+          const freshHomeQuote =
+            chance && match.home
+              ? round2(chance.teamPrices.get(canonicalTeamName(match.home)) ?? 0) || null
+              : null;
+          const freshAwayQuote =
+            chance && match.away
+              ? round2(chance.teamPrices.get(canonicalTeamName(match.away)) ?? 0) || null
+              : null;
+          const freshDrawQuote = chance ? round2(chance.drawPrice) || null : null;
 
-    // Finished matches (those with a result) keep no live cotes. Otherwise we
-    // fetch fresh ones but fall back to the last known cote when none is
-    // available, so quotes don't disappear mid-match.
-    if (!hasResult && pairKey) {
-      if (isPoolStage(match.stage)) {
-        // Pool (group-stage) matches can end in a draw, so we keep the
-        // three-way home/draw/away cotes.
-        const chance = chancesByPair.get(pairKey);
-        const freshHomeQuote =
-          chance && match.home
-            ? round2(chance.teamPrices.get(canonicalTeamName(match.home)) ?? 0) || null
-            : null;
-        const freshAwayQuote =
-          chance && match.away
-            ? round2(chance.teamPrices.get(canonicalTeamName(match.away)) ?? 0) || null
-            : null;
-        const freshDrawQuote = chance ? round2(chance.drawPrice) || null : null;
+          homeQuote = freshHomeQuote ?? match.homeQuote;
+          awayQuote = freshAwayQuote ?? match.awayQuote;
+          drawQuote = freshDrawQuote ?? match.drawQuote;
+          hasQuotes = Boolean(chance);
+        } else {
+          // Knockout matches always produce a qualifier, so we take the two-way
+          // winner (qualify) cotes from the draw-no-bet market: HOME and AWAY
+          // only, no draw.
+          const qualify = qualifyByPair.get(pairKey);
+          const freshHomeQuote =
+            qualify && match.home
+              ? round2(qualify.teamPrices.get(canonicalTeamName(match.home)) ?? 0) || null
+              : null;
+          const freshAwayQuote =
+            qualify && match.away
+              ? round2(qualify.teamPrices.get(canonicalTeamName(match.away)) ?? 0) || null
+              : null;
 
-        homeQuote = freshHomeQuote ?? match.homeQuote;
-        awayQuote = freshAwayQuote ?? match.awayQuote;
-        drawQuote = freshDrawQuote ?? match.drawQuote;
-        hasQuotes = Boolean(chance);
-      } else {
-        // Knockout matches always produce a qualifier, so we take the two-way
-        // winner (qualify) cotes from the draw-no-bet market: HOME and AWAY
-        // only, no draw.
-        const qualify = qualifyByPair.get(pairKey);
-        const freshHomeQuote =
-          qualify && match.home
-            ? round2(qualify.teamPrices.get(canonicalTeamName(match.home)) ?? 0) || null
-            : null;
-        const freshAwayQuote =
-          qualify && match.away
-            ? round2(qualify.teamPrices.get(canonicalTeamName(match.away)) ?? 0) || null
-            : null;
-
-        homeQuote = freshHomeQuote ?? match.homeQuote;
-        awayQuote = freshAwayQuote ?? match.awayQuote;
-        drawQuote = null;
-        hasQuotes = Boolean(qualify);
+          homeQuote = freshHomeQuote ?? match.homeQuote;
+          awayQuote = freshAwayQuote ?? match.awayQuote;
+          drawQuote = null;
+          hasQuotes = Boolean(qualify);
+        }
       }
-    }
 
-    if (hasQuotes) {
-      withQuotes += 1;
-    }
+      if (hasQuotes) {
+        withQuotes += 1;
+      }
 
-    const isUpcoming = match.startDate ? new Date(match.startDate).getTime() > now : false;
-
-    const prematchChanged =
-      isUpcoming &&
-      (match.prematchHomeCote !== homeQuote ||
-        match.prematchDrawCote !== drawQuote ||
-        match.prematchAwayCote !== awayQuote);
-
-    const quotesChanged =
-      match.homeQuote !== homeQuote ||
-      match.drawQuote !== drawQuote ||
-      match.awayQuote !== awayQuote;
-
-    if (!quotesChanged && !prematchChanged) {
-      continue;
-    }
-
-    updates.push({
-      id: match.id,
-      data: {
-        homeQuote,
-        drawQuote,
-        awayQuote,
-        ...(isUpcoming
-          ? {
-              prematchHomeCote: homeQuote,
-              prematchDrawCote: drawQuote,
-              prematchAwayCote: awayQuote,
-            }
-          : {}),
-      },
-    });
-  }
+      return { home: homeQuote, draw: drawQuote, away: awayQuote };
+    },
+    Date.now(),
+  );
 
   const updated = await applyGroupedUpdates(updates, (ids, data) =>
     client.mutation({
