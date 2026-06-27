@@ -66,29 +66,13 @@ export default definePageLayout({
           },
         },
         {
-          universalIdentifier: '133e87e9-aed4-484e-acae-deee73996169',
-          title: 'Podium',
-          type: 'FRONT_COMPONENT',
-          gridPosition: {
-            row: 0,
-            column: 9,
-            rowSpan: 4,
-            columnSpan: 3,
-          },
-          configuration: {
-            configurationType: 'FRONT_COMPONENT',
-            frontComponentUniversalIdentifier:
-              PODIUM_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
-          },
-        },
-        {
           universalIdentifier: 'a9bcf5a3-6e39-4ef8-9144-e50c0877a267',
           title: 'Finished matches',
           type: 'FRONT_COMPONENT',
           gridPosition: {
-            row: 4,
+            row: 0,
             column: 9,
-            rowSpan: 15,
+            rowSpan: 19,
             columnSpan: 3,
           },
           configuration: {
@@ -99,7 +83,7 @@ export default definePageLayout({
         },
         {
           universalIdentifier: '6c488ea1-d025-40c0-9c90-15150e653d72',
-          title: 'Leaderboard',
+          title: 'Leaderboard (puntos)',
           type: 'RECORD_TABLE',
           objectUniversalIdentifier:
             STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
@@ -115,11 +99,11 @@ export default definePageLayout({
           },
         },
         {
-          universalIdentifier: '6dd1d37c-2893-45d7-b893-07095e378626',
-          title: 'Leaderboard + wcw ev',
+          universalIdentifier: '8b6f1c4d-9a2e-4f30-bd71-2c5e0a4f9d83',
+          title: 'Leaderboard (puntevs)',
           type: 'RECORD_TABLE',
           objectUniversalIdentifier:
-            STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
+          STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
           gridPosition: {
             row: 8,
             column: 3,
@@ -128,12 +112,12 @@ export default definePageLayout({
           },
           configuration: {
             configurationType: 'RECORD_TABLE',
-            viewId: LEADERBOARD_WCW_EV_VIEW_UNIVERSAL_IDENTIFIER,
+            viewId: LEADERBOARD_PUNTEVS_VIEW_UNIVERSAL_IDENTIFIER,
           },
         },
         {
-          universalIdentifier: '8b6f1c4d-9a2e-4f30-bd71-2c5e0a4f9d83',
-          title: 'Leaderboard puntevs',
+          universalIdentifier: '6dd1d37c-2893-45d7-b893-07095e378626',
+          title: 'Leaderboard (puntos + wcw puntev)',
           type: 'RECORD_TABLE',
           objectUniversalIdentifier:
             STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
@@ -145,23 +129,51 @@ export default definePageLayout({
           },
           configuration: {
             configurationType: 'RECORD_TABLE',
-            viewId: LEADERBOARD_PUNTEVS_VIEW_UNIVERSAL_IDENTIFIER,
+            viewId: LEADERBOARD_WCW_EV_VIEW_UNIVERSAL_IDENTIFIER,
           },
         },
         {
-          universalIdentifier: '5c213c3c-a483-4310-80e5-5c472aa17968',
-          title: 'WinnerBets',
-          type: 'FRONT_COMPONENT',
+          universalIdentifier: 'd5db6c66-63dc-4ceb-828f-8fbe920a01a5',
+          title: 'Puntevs evolution',
+          type: 'GRAPH',
+          objectUniversalIdentifier: BET_OBJECT_UNIVERSAL_IDENTIFIER,
           gridPosition: {
             row: 21,
             column: 0,
-            rowSpan: 6,
+            rowSpan: 8,
             columnSpan: 9,
+          },
+          configuration: {
+            configurationType: 'LINE_CHART',
+            aggregateFieldMetadataUniversalIdentifier:
+            BET_PUNTEVS_FIELD_UNIVERSAL_IDENTIFIER,
+            aggregateOperation: AggregateOperations.SUM,
+            primaryAxisGroupByFieldMetadataUniversalIdentifier:
+            MATCH_ON_BET_FIELD_UNIVERSAL_IDENTIFIER,
+            primaryAxisGroupBySubFieldName: 'startDate',
+            primaryAxisDateGranularity: ObjectRecordGroupByDateGranularity.DAY,
+            secondaryAxisGroupByFieldMetadataUniversalIdentifier:
+            PERSON_ON_BET_FIELD_UNIVERSAL_IDENTIFIER,
+            isCumulative: true,
+            isStacked: false,
+            displayDataLabel: false,
+            displayLegend: false,
+          },
+        },
+        {
+          universalIdentifier: '133e87e9-aed4-484e-acae-deee73996169',
+          title: 'Podium',
+          type: 'FRONT_COMPONENT',
+          gridPosition: {
+            row: 21,
+            column: 9,
+            rowSpan: 4,
+            columnSpan: 3,
           },
           configuration: {
             configurationType: 'FRONT_COMPONENT',
             frontComponentUniversalIdentifier:
-              WINNER_BETS_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
+            PODIUM_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
           },
         },
         {
@@ -171,7 +183,7 @@ export default definePageLayout({
           gridPosition: {
             row: 21,
             column: 9,
-            rowSpan: 6,
+            rowSpan: 4,
             columnSpan: 3,
           },
           configuration: {
@@ -181,31 +193,19 @@ export default definePageLayout({
           },
         },
         {
-          universalIdentifier: 'd5db6c66-63dc-4ceb-828f-8fbe920a01a5',
-          title: 'Puntevs evolution',
-          type: 'GRAPH',
-          objectUniversalIdentifier: BET_OBJECT_UNIVERSAL_IDENTIFIER,
+          universalIdentifier: '5c213c3c-a483-4310-80e5-5c472aa17968',
+          title: 'WinnerBets',
+          type: 'FRONT_COMPONENT',
           gridPosition: {
-            row: 27,
+            row: 29,
             column: 0,
-            rowSpan: 8,
+            rowSpan: 6,
             columnSpan: 9,
           },
           configuration: {
-            configurationType: 'LINE_CHART',
-            aggregateFieldMetadataUniversalIdentifier:
-              BET_PUNTEVS_FIELD_UNIVERSAL_IDENTIFIER,
-            aggregateOperation: AggregateOperations.SUM,
-            primaryAxisGroupByFieldMetadataUniversalIdentifier:
-              MATCH_ON_BET_FIELD_UNIVERSAL_IDENTIFIER,
-            primaryAxisGroupBySubFieldName: 'startDate',
-            primaryAxisDateGranularity: ObjectRecordGroupByDateGranularity.DAY,
-            secondaryAxisGroupByFieldMetadataUniversalIdentifier:
-              PERSON_ON_BET_FIELD_UNIVERSAL_IDENTIFIER,
-            isCumulative: true,
-            isStacked: false,
-            displayDataLabel: false,
-            displayLegend: false,
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier:
+            WINNER_BETS_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
           },
         },
       ],

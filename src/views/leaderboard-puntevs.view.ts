@@ -25,7 +25,7 @@ export default defineView({
           .universalIdentifier,
       position: 0,
       isVisible: true,
-      size: 140,
+      size: 160,
     },
     {
       universalIdentifier: '161ed9ed-5380-4099-98e2-b711710b0af5',
@@ -33,7 +33,7 @@ export default defineView({
         PUNTEVS_ON_PERSON_FIELD_UNIVERSAL_IDENTIFIER,
       position: 1,
       isVisible: true,
-      size: 100,
+      size: 180,
     },
   ],
   sorts: [

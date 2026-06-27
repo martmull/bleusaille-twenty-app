@@ -25,7 +25,7 @@ export default defineView({
           .universalIdentifier,
       position: 0,
       isVisible: true,
-      size: 140,
+      size: 160,
     },
     {
       universalIdentifier: '478375f4-c9ee-4f9b-a64d-580266a10975',
@@ -33,6 +33,7 @@ export default defineView({
         PUNTOS_WCW_EV_ON_PERSON_FIELD_UNIVERSAL_IDENTIFIER,
       position: 1,
       isVisible: true,
+      size: 180,
     },
   ],
   sorts: [
