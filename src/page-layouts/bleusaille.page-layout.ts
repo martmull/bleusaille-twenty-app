@@ -72,7 +72,7 @@ export default definePageLayout({
           gridPosition: {
             row: 0,
             column: 9,
-            rowSpan: 19,
+            rowSpan: 15,
             columnSpan: 3,
           },
           configuration: {
@@ -194,7 +194,7 @@ export default definePageLayout({
         },
         {
           universalIdentifier: '5c213c3c-a483-4310-80e5-5c472aa17968',
-          title: 'WinnerBets',
+          title: 'Winner Bets',
           type: 'FRONT_COMPONENT',
           gridPosition: {
             row: 29,

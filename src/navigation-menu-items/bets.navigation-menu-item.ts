@@ -3,10 +3,9 @@ import { defineNavigationMenuItem, NavigationMenuItemType } from 'twenty-sdk/def
 import { BET_OBJECT_UNIVERSAL_IDENTIFIER } from 'src/objects/bet.object';
 
 export default defineNavigationMenuItem({
-  universalIdentifier: 'ab4f3f8a-0430-4e8b-a97e-63575d277229',
+  universalIdentifier: '19e059d8-1380-4349-a32f-7f5a4cca4576',
   name: 'Bets',
-  icon: 'IconTrophy',
-  position: 1,
+  position: 2,
   type: NavigationMenuItemType.OBJECT,
   targetObjectUniversalIdentifier: BET_OBJECT_UNIVERSAL_IDENTIFIER,
 });

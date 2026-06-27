@@ -21,7 +21,7 @@ export default defineObject({
   labelSingular: 'Bet',
   labelPlural: 'Bets',
   description: "A person's prediction for a match. Each person should have at most one bet per match.",
-  icon: 'IconTrophy',
+  icon: 'IconDice',
   isSearchable: true,
   labelIdentifierFieldMetadataUniversalIdentifier: BET_NAME_FIELD_UNIVERSAL_IDENTIFIER,
   fields: [

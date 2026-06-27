@@ -277,7 +277,7 @@ const BetCard = ({ bet, index }: { bet: WinnerBetGroup; index: number }) => {
             whiteSpace: 'nowrap',
           }}
         >
-          {formatPuntos(bet.puntosIfVictory)} puntos exp
+          {formatPuntos(bet.puntosIfVictory)} puntevs
           <span style={{ fontWeight: 500, color: theme.muted }}>
             {formatWonIfVictory(bet.puntosWonIfVictory)}
           </span>
