@@ -45,7 +45,7 @@ export default definePageLayout({
             row: 0,
             column: 0,
             rowSpan: 8,
-            columnSpan: 7,
+            columnSpan: 9,
           },
           configuration: {
             configurationType: 'LINE_CHART',
@@ -70,9 +70,9 @@ export default definePageLayout({
           type: 'FRONT_COMPONENT',
           gridPosition: {
             row: 0,
-            column: 7,
+            column: 9,
             rowSpan: 4,
-            columnSpan: 5,
+            columnSpan: 3,
           },
           configuration: {
             configurationType: 'FRONT_COMPONENT',
@@ -86,9 +86,9 @@ export default definePageLayout({
           type: 'FRONT_COMPONENT',
           gridPosition: {
             row: 4,
-            column: 7,
-            rowSpan: 17,
-            columnSpan: 5,
+            column: 9,
+            rowSpan: 15,
+            columnSpan: 3,
           },
           configuration: {
             configurationType: 'FRONT_COMPONENT',
@@ -105,8 +105,8 @@ export default definePageLayout({
           gridPosition: {
             row: 8,
             column: 0,
-            rowSpan: 13,
-            columnSpan: 2,
+            rowSpan: 11,
+            columnSpan: 3,
           },
           configuration: {
             configurationType: 'RECORD_TABLE',
@@ -121,9 +121,9 @@ export default definePageLayout({
             STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
           gridPosition: {
             row: 8,
-            column: 2,
-            rowSpan: 13,
-            columnSpan: 2,
+            column: 3,
+            rowSpan: 11,
+            columnSpan: 3,
           },
           configuration: {
             configurationType: 'RECORD_TABLE',
@@ -138,9 +138,9 @@ export default definePageLayout({
             STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
           gridPosition: {
             row: 8,
-            column: 4,
-            rowSpan: 13,
-            columnSpan: 2,
+            column: 6,
+            rowSpan: 11,
+            columnSpan: 3,
           },
           configuration: {
             configurationType: 'RECORD_TABLE',
@@ -154,8 +154,8 @@ export default definePageLayout({
           gridPosition: {
             row: 21,
             column: 0,
-            rowSpan: 8,
-            columnSpan: 7,
+            rowSpan: 6,
+            columnSpan: 9,
           },
           configuration: {
             configurationType: 'FRONT_COMPONENT',
@@ -169,9 +169,9 @@ export default definePageLayout({
           type: 'FRONT_COMPONENT',
           gridPosition: {
             row: 21,
-            column: 7,
-            rowSpan: 8,
-            columnSpan: 5,
+            column: 9,
+            rowSpan: 6,
+            columnSpan: 3,
           },
           configuration: {
             configurationType: 'FRONT_COMPONENT',
