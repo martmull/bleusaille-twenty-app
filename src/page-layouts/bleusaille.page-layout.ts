@@ -5,6 +5,7 @@ import {
   PageLayoutTabLayoutMode,
 } from 'twenty-sdk/define';
 
+import { FINISHED_MATCHES_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/finished-matches';
 import { PODIUM_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/podium';
 import { MATCH_ON_BET_FIELD_UNIVERSAL_IDENTIFIER } from 'src/fields/match-on-bet.field';
 import { PERSON_ON_BET_FIELD_UNIVERSAL_IDENTIFIER } from 'src/fields/person-on-bet.field';
@@ -71,6 +72,22 @@ export default definePageLayout({
             configurationType: 'FRONT_COMPONENT',
             frontComponentUniversalIdentifier:
               PODIUM_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
+          },
+        },
+        {
+          universalIdentifier: 'a9bcf5a3-6e39-4ef8-9144-e50c0877a267',
+          title: 'Finished matches',
+          type: 'FRONT_COMPONENT',
+          gridPosition: {
+            row: 4,
+            column: 7,
+            rowSpan: 17,
+            columnSpan: 5,
+          },
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier:
+              FINISHED_MATCHES_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
           },
         },
       ],
