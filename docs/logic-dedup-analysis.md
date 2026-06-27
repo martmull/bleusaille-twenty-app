@@ -35,6 +35,26 @@ Similarly rejected by the skeptics:
 - Fusing `updateMatchQuotes` + `updateMatchBreakeven` into one always-writes-both step —
   `compute-ev.step.ts` calls `updateMatchQuotes` **alone** and must never start writing breakeven.
 
+## Implementation status (this branch)
+
+Landed and verified (typecheck clean, 39 unit tests green, lint clean; net −235 lines):
+
+- ✅ **W1** — generic `fetchAllRecords` pager; all ~28 logic call sites migrated. Also fixed a
+  latent bug: `best-strategy-prediction`'s `bettors` query was unpaginated.
+- ✅ **W2a** — `update-match-quotes` / `update-match-breakeven` share `buildMatchTripleUpdates`
+  (the scaffolding extraction; the redundant second `matches` scan removal, W2b, is still pending).
+- ✅ **W3** — `buildFieldUpdates` shared diff tail across four people steps.
+- ✅ **W7** — shared `leaderboard.ts` (`computeRanks`, `cloneTotals`).
+- ✅ **W11 (perf half)** — O(n²)→O(n) `winnersForPick` map in `compute-puntos`.
+
+Still pending (documented below; deferred as higher-risk — they change DB-call ordering, failure
+policy, rounding, or a join key, and want integration testing against a live Twenty server before
+shipping): **W2b** (in-memory breakeven to drop the second matches scan), **W4** (merge the two EV
+people steps), **W5** (thread puntosEvolution totals — note the stale-record edge case), **W6**
+(shared HTTP layer), **W8** (adopt `selectCurrentMatch`), **W9** (formula consolidation + rounding),
+**W10** (team-name unify + the `fetchWorldCupWinnerChances` key fix — a coordinated producer/consumer
+behavior change), **W11 (route-params half)**.
+
 ## Work items (~330 lines removed, behavior preserved)
 
 | ID | Pri | Title | Est. lines | Risk |
