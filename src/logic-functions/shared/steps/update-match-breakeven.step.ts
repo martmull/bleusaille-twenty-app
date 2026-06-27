@@ -4,8 +4,7 @@ import { NUMBER_OF_BETTORS } from 'src/constants/tournament';
 import {
   applyGroupedUpdates,
   buildMatchTripleUpdates,
-  fetchAllPages,
-  PAGE_SIZE,
+  fetchAllRecords,
 } from 'src/logic-functions/shared/api';
 import { computeBreakeven } from 'src/logic-functions/shared/match-breakeven';
 
@@ -32,30 +31,19 @@ export type UpdateMatchBreakevenResult = {
 export const updateMatchBreakeven = async (
   client: CoreApiClient,
 ): Promise<UpdateMatchBreakevenResult> => {
-  const matches = await fetchAllPages<MatchRecord>(async (after) => {
-    const { matches: page } = await client.query({
-      matches: {
-        __args: { first: PAGE_SIZE, after },
-        edges: {
-          node: {
-            id: true,
-            startDate: true,
-            result: true,
-            homeQuote: true,
-            drawQuote: true,
-            awayQuote: true,
-            homeBreakeven: true,
-            drawBreakeven: true,
-            awayBreakeven: true,
-            prematchHomeBreakeven: true,
-            prematchDrawBreakeven: true,
-            prematchAwayBreakeven: true,
-          },
-        },
-        pageInfo: { hasNextPage: true, endCursor: true },
-      },
-    });
-    return page;
+  const matches = await fetchAllRecords<MatchRecord>(client, 'matches', {
+    id: true,
+    startDate: true,
+    result: true,
+    homeQuote: true,
+    drawQuote: true,
+    awayQuote: true,
+    homeBreakeven: true,
+    drawBreakeven: true,
+    awayBreakeven: true,
+    prematchHomeBreakeven: true,
+    prematchDrawBreakeven: true,
+    prematchAwayBreakeven: true,
   });
 
   // The bettor pool is fixed for the tournament, so there is no need to count

@@ -1,6 +1,6 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
-import { createCoreApiClient, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { createCoreApiClient, fetchAllRecords } from 'src/logic-functions/shared/api';
 import { cloneTotals, computeRanks, RankTotals } from 'src/logic-functions/shared/leaderboard';
 
 type MatchRecord = {
@@ -43,51 +43,25 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
   const client = createCoreApiClient();
 
   const [matches, winningBets, people] = await Promise.all([
-    fetchAllPages<MatchRecord>(async (after) => {
-      const { matches: page } = await client.query({
-        matches: {
-          __args: { first: PAGE_SIZE, after },
-          edges: {
-            node: {
-              id: true,
-              home: true,
-              away: true,
-              score: true,
-              endDate: true,
-              result: true,
-            },
-          },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
+    fetchAllRecords<MatchRecord>(client, 'matches', {
+      id: true,
+      home: true,
+      away: true,
+      score: true,
+      endDate: true,
+      result: true,
     }),
-    fetchAllPages<WinningBetRecord>(async (after) => {
-      const { bets: page } = await client.query({
-        bets: {
-          __args: { first: PAGE_SIZE, after, filter: { won: { eq: true } } },
-          edges: {
-            node: {
-              puntos: true,
-              person: { id: true, name: { firstName: true } },
-              match: { id: true },
-            },
-          },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
-    }),
-    fetchAllPages<PersonRecord>(async (after) => {
-      const { people: page } = await client.query({
-        people: {
-          __args: { first: PAGE_SIZE, after },
-          edges: { node: { id: true, name: { firstName: true } } },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
-    }),
+    fetchAllRecords<WinningBetRecord>(
+      client,
+      'bets',
+      {
+        puntos: true,
+        person: { id: true, name: { firstName: true } },
+        match: { id: true },
+      },
+      { filter: { won: { eq: true } } },
+    ),
+    fetchAllRecords<PersonRecord>(client, 'people', { id: true, name: { firstName: true } }),
   ]);
 
   type RawWinner = { name: string; personId: string; matchPuntos: number };

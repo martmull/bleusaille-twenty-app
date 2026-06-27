@@ -1,6 +1,6 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
-import { applyGroupedUpdates, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { applyGroupedUpdates, fetchAllRecords } from 'src/logic-functions/shared/api';
 
 type EvolutionRecord = { points: number | null; person: { id: string } | null };
 type PersonRecord = { id: string; puntos: number | null };
@@ -14,26 +14,11 @@ export const updatePeoplePuntos = async (
   client: CoreApiClient,
 ): Promise<UpdatePeoplePuntosResult> => {
   const [evolutions, people] = await Promise.all([
-    fetchAllPages<EvolutionRecord>(async (after) => {
-      const { puntosEvolutions: page } = await client.query({
-        puntosEvolutions: {
-          __args: { first: PAGE_SIZE, after },
-          edges: { node: { points: true, person: { id: true } } },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
+    fetchAllRecords<EvolutionRecord>(client, 'puntosEvolutions', {
+      points: true,
+      person: { id: true },
     }),
-    fetchAllPages<PersonRecord>(async (after) => {
-      const { people: page } = await client.query({
-        people: {
-          __args: { first: PAGE_SIZE, after },
-          edges: { node: { id: true, puntos: true } },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
-    }),
+    fetchAllRecords<PersonRecord>(client, 'people', { id: true, puntos: true }),
   ]);
 
   const puntosByPersonId = new Map<string, number>();

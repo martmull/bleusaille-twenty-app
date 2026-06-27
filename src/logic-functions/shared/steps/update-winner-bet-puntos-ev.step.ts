@@ -1,6 +1,6 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
-import { applyGroupedUpdates, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { applyGroupedUpdates, fetchAllRecords } from 'src/logic-functions/shared/api';
 import { computeWinnerBetPuntosEv } from 'src/logic-functions/shared/winner-bet-puntos-ev';
 
 type PersonRecord = {
@@ -18,17 +18,11 @@ export type UpdateWinnerBetPuntosEvResult = {
 export const updateWinnerBetPuntosEv = async (
   client: CoreApiClient,
 ): Promise<UpdateWinnerBetPuntosEvResult> => {
-  const people = await fetchAllPages<PersonRecord>(async (after) => {
-    const { people: page } = await client.query({
-      people: {
-        __args: { first: PAGE_SIZE, after },
-        edges: {
-          node: { id: true, wcWinnerBet: true, victoryChance: true, winnerBetPuntosEv: true },
-        },
-        pageInfo: { hasNextPage: true, endCursor: true },
-      },
-    });
-    return page;
+  const people = await fetchAllRecords<PersonRecord>(client, 'people', {
+    id: true,
+    wcWinnerBet: true,
+    victoryChance: true,
+    winnerBetPuntosEv: true,
   });
 
   const predictorsByTeam = new Map<string, number>();

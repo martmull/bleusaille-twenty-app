@@ -1,7 +1,7 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
 import { NUMBER_OF_BETTORS } from 'src/constants/tournament';
-import { applyGroupedUpdates, fetchAllPages, PAGE_SIZE, round2 } from 'src/logic-functions/shared/api';
+import { applyGroupedUpdates, fetchAllRecords, round2 } from 'src/logic-functions/shared/api';
 import { computePotValueEur, fetchSpacexPriceUsd } from 'src/logic-functions/shared/pot';
 import { computeWinnings, WinningsGroup } from 'src/logic-functions/shared/winnings';
 
@@ -20,16 +20,7 @@ export const updateWinnings = async (
   client: CoreApiClient,
 ): Promise<UpdateWinningsResult> => {
   const [people, priceUsd] = await Promise.all([
-    fetchAllPages<PersonRecord>(async (after) => {
-      const { people: page } = await client.query({
-        people: {
-          __args: { first: PAGE_SIZE, after },
-          edges: { node: { id: true, puntos: true, winnings: true } },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
-    }),
+    fetchAllRecords<PersonRecord>(client, 'people', { id: true, puntos: true, winnings: true }),
     fetchSpacexPriceUsd(),
   ]);
 

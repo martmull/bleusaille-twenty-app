@@ -3,8 +3,7 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 import {
   applyGroupedUpdates,
   buildMatchTripleUpdates,
-  fetchAllPages,
-  PAGE_SIZE,
+  fetchAllRecords,
   round2,
 } from 'src/logic-functions/shared/api';
 import {
@@ -46,30 +45,19 @@ export const updateMatchQuotes = async (
 ): Promise<UpdateMatchQuotesResult> => {
   const [chancesByPair, matches] = await Promise.all([
     chances ? Promise.resolve(chances) : fetchMatchResultChances(),
-    fetchAllPages<MatchRecord>(async (after) => {
-      const { matches: page } = await client.query({
-        matches: {
-          __args: { first: PAGE_SIZE, after },
-          edges: {
-            node: {
-              id: true,
-              home: true,
-              away: true,
-              startDate: true,
-              result: true,
-              stage: true,
-              homeQuote: true,
-              drawQuote: true,
-              awayQuote: true,
-              prematchHomeCote: true,
-              prematchDrawCote: true,
-              prematchAwayCote: true,
-            },
-          },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
+    fetchAllRecords<MatchRecord>(client, 'matches', {
+      id: true,
+      home: true,
+      away: true,
+      startDate: true,
+      result: true,
+      stage: true,
+      homeQuote: true,
+      drawQuote: true,
+      awayQuote: true,
+      prematchHomeCote: true,
+      prematchDrawCote: true,
+      prematchAwayCote: true,
     }),
   ]);
 

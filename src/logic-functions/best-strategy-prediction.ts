@@ -1,6 +1,6 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 import { generateBets, GeneratedBet } from "src/logic-functions/shared/generate-best-strategy-bets";
-import { createCoreApiClient, fetchAllPages, PAGE_SIZE } from "src/logic-functions/shared/api";
+import { createCoreApiClient, fetchAllRecords } from "src/logic-functions/shared/api";
 
 type MatchRecord = {
   id: string;
@@ -9,6 +9,12 @@ type MatchRecord = {
   prematchHomeCote: number | null;
   prematchDrawCote: number | null;
   prematchAwayCote: number | null;
+};
+
+type BettorRecord = {
+  id: string;
+  name: { firstName: string | null; lastName: string | null } | null;
+  puntos: number | null;
 };
 
 
@@ -23,31 +29,26 @@ const handler = async ({
 
   const client = createCoreApiClient();
 
-  const matches = await fetchAllPages<MatchRecord>(async (after) => {
-    const { matches: page } = await client.query({
-      matches: {
-        __args: { first: PAGE_SIZE, after },
-        edges: {
-          node: {
-            id: true,
-            name: true,
-            startDate: true,
-            prematchHomeCote: true,
-            prematchDrawCote: true,
-            prematchAwayCote: true,
-          },
-        },
-        pageInfo: { hasNextPage: true, endCursor: true },
-      },
-    });
-    return page;
+  const matches = await fetchAllRecords<MatchRecord>(client, 'matches', {
+    id: true,
+    name: true,
+    startDate: true,
+    prematchHomeCote: true,
+    prematchDrawCote: true,
+    prematchAwayCote: true,
   });
 
-  const {people: bettors} = await client.query({
-    people: {edges: {node: { name: {firstName: true, lastName: true}, puntos: true, id: true }}}
+  const bettors = await fetchAllRecords<BettorRecord>(client, 'people', {
+    id: true,
+    name: { firstName: true, lastName: true },
+    puntos: true,
   });
 
-  const formattedBettors = bettors?.edges.map((bettor) => ({id: bettor.node.id, name: bettor.node.name?.firstName ?? '', points: bettor.node.puntos ?? 0})) ?? []
+  const formattedBettors = bettors.map((bettor) => ({
+    id: bettor.id,
+    name: bettor.name?.firstName ?? '',
+    points: bettor.puntos ?? 0,
+  }));
 
   const now = Date.now();
 

@@ -1,6 +1,6 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
-import { createCoreApiClient, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { createCoreApiClient, fetchAllRecords } from 'src/logic-functions/shared/api';
 import { fetchWorldCupMatches } from 'src/logic-functions/shared/football-data';
 import { fetchSportscoreLiveMatch } from 'src/logic-functions/shared/sportscore';
 import { teamPairKey } from 'src/logic-functions/shared/team-aliases';
@@ -170,23 +170,12 @@ const resolveLiveMatches = async (
 const handler = async (): Promise<LiveMatchResponse> => {
   const client = createCoreApiClient();
 
-  const matches = await fetchAllPages<MatchRecord>(async (after) => {
-    const { matches: page } = await client.query({
-      matches: {
-        __args: { first: PAGE_SIZE, after },
-        edges: {
-          node: {
-            home: true,
-            away: true,
-            startDate: true,
-            endDate: true,
-            stage: true,
-          },
-        },
-        pageInfo: { hasNextPage: true, endCursor: true },
-      },
-    });
-    return page;
+  const matches = await fetchAllRecords<MatchRecord>(client, 'matches', {
+    home: true,
+    away: true,
+    startDate: true,
+    endDate: true,
+    stage: true,
   });
 
   const now = Date.now();

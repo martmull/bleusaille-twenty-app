@@ -28,6 +28,28 @@ export const fetchAllPages = async <T>(
   }
 };
 
+// Generic entity-keyed pager: fetches every page of `entity` with the given
+// genql `node` selection (and optional args like filter/orderBy), removing the
+// repeated first/after/pageInfo/edges plumbing at each call site. The caller
+// pairs its own `TNode` type with the `node` selection, exactly as it did with
+// the inline fetchAllPages calls.
+export const fetchAllRecords = async <TNode>(
+  client: CoreApiClient,
+  entity: string,
+  node: Record<string, unknown>,
+  args: Record<string, unknown> = {},
+): Promise<TNode[]> =>
+  fetchAllPages<TNode>(async (after) => {
+    const result = await client.query({
+      [entity]: {
+        __args: { first: PAGE_SIZE, after, ...args },
+        edges: { node },
+        pageInfo: { hasNextPage: true, endCursor: true },
+      },
+    } as never);
+    return (result as Record<string, Connection<TNode>>)[entity];
+  });
+
 export const chunk = <T>(items: T[], size: number): T[][] => {
   const chunks: T[][] = [];
 

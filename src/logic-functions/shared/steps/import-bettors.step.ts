@@ -1,6 +1,6 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
-import { chunk, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { chunk, fetchAllRecords } from 'src/logic-functions/shared/api';
 import { KicktippBet, scrapeKicktippBets } from 'src/logic-functions/shared/kicktipp';
 
 type PersonRecord = { id: string; name: { firstName: string | null } };
@@ -18,15 +18,9 @@ export const importBettors = async (
   const bets = kicktippBets ?? (await scrapeKicktippBets());
   const bettorNames = [...new Set(bets.map((bet) => bet.player))];
 
-  const people = await fetchAllPages<PersonRecord>(async (after) => {
-    const { people: page } = await client.query({
-      people: {
-        __args: { first: PAGE_SIZE, after },
-        edges: { node: { id: true, name: { firstName: true } } },
-        pageInfo: { hasNextPage: true, endCursor: true },
-      },
-    });
-    return page;
+  const people = await fetchAllRecords<PersonRecord>(client, 'people', {
+    id: true,
+    name: { firstName: true },
   });
 
   const existingNames = new Set(

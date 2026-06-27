@@ -1,6 +1,6 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
-import { applyGroupedUpdates, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { applyGroupedUpdates, fetchAllRecords } from 'src/logic-functions/shared/api';
 import { computeBetPuntevs } from 'src/logic-functions/shared/bet-ev';
 import { computePuntos, PuntosBet } from 'src/logic-functions/shared/compute-puntos';
 import { BetValue } from 'src/objects/bet.object';
@@ -59,31 +59,20 @@ const prematchPickProbability = (betValue: string, match: BetMatch): number | nu
 };
 
 export const computeBetsPuntos = async (client: CoreApiClient): Promise<ComputePuntosResult> => {
-  const bets = await fetchAllPages<BetRecord>(async (after) => {
-    const { bets: page } = await client.query({
-      bets: {
-        __args: { first: PAGE_SIZE, after },
-        edges: {
-          node: {
-            id: true,
-            betValue: true,
-            won: true,
-            puntos: true,
-            puntevs: true,
-            match: {
-              id: true,
-              result: true,
-              stage: true,
-              prematchHomeCote: true,
-              prematchDrawCote: true,
-              prematchAwayCote: true,
-            },
-          },
-        },
-        pageInfo: { hasNextPage: true, endCursor: true },
-      },
-    });
-    return page;
+  const bets = await fetchAllRecords<BetRecord>(client, 'bets', {
+    id: true,
+    betValue: true,
+    won: true,
+    puntos: true,
+    puntevs: true,
+    match: {
+      id: true,
+      result: true,
+      stage: true,
+      prematchHomeCote: true,
+      prematchDrawCote: true,
+      prematchAwayCote: true,
+    },
   });
 
   const updates: Array<{ id: string; data: { puntos: number; puntevs: number | null } }> = [];

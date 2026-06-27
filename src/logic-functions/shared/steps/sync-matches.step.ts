@@ -1,11 +1,6 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
-import {
-  applyGroupedUpdates,
-  chunk,
-  fetchAllPages,
-  PAGE_SIZE,
-} from 'src/logic-functions/shared/api';
+import { applyGroupedUpdates, chunk, fetchAllRecords } from 'src/logic-functions/shared/api';
 import { fetchWorldCupMatches } from 'src/logic-functions/shared/football-data';
 import { MatchResult, MatchType } from 'src/objects/match.object';
 
@@ -90,28 +85,16 @@ export const syncMatches = async (
 ): Promise<SyncMatchesResult> => {
   const [resolvedMatches, existingMatches] = await Promise.all([
     apiMatches ?? await fetchWorldCupMatches<FootballDataMatch>(),
-    fetchAllPages<MatchRecord>(async (after) => {
-      const { matches } = await client.query({
-        matches: {
-          __args: { first: PAGE_SIZE, after },
-          edges: {
-            node: {
-              id: true,
-              name: true,
-              home: true,
-              away: true,
-              startDate: true,
-              endDate: true,
-              score: true,
-              result: true,
-              stage: true,
-            },
-          },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-
-      return matches;
+    fetchAllRecords<MatchRecord>(client, 'matches', {
+      id: true,
+      name: true,
+      home: true,
+      away: true,
+      startDate: true,
+      endDate: true,
+      score: true,
+      result: true,
+      stage: true,
     }),
   ]);
 

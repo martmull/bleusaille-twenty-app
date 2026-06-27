@@ -1,6 +1,6 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
-import { createCoreApiClient, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { createCoreApiClient, fetchAllRecords } from 'src/logic-functions/shared/api';
 import { computeWinnerBetPot } from 'src/logic-functions/shared/winner-bet-puntos-ev';
 
 type PersonRecord = {
@@ -24,22 +24,11 @@ type WinnerBetGroup = GroupAccumulator & {
 const handler = async (): Promise<{ bets: WinnerBetGroup[] }> => {
   const client = createCoreApiClient();
 
-  const people = await fetchAllPages<PersonRecord>(async (after) => {
-    const { people: page } = await client.query({
-      people: {
-        __args: { first: PAGE_SIZE, after },
-        edges: {
-          node: {
-            name: { firstName: true },
-            wcWinnerBet: true,
-            victoryChance: true,
-            winnerBetPuntosEv: true,
-          },
-        },
-        pageInfo: { hasNextPage: true, endCursor: true },
-      },
-    });
-    return page;
+  const people = await fetchAllRecords<PersonRecord>(client, 'people', {
+    name: { firstName: true },
+    wcWinnerBet: true,
+    victoryChance: true,
+    winnerBetPuntosEv: true,
   });
 
   const normalizeTeam = (team: string): string => team.trim().toLowerCase();

@@ -1,6 +1,6 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
-import { applyGroupedUpdates, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { applyGroupedUpdates, fetchAllRecords } from 'src/logic-functions/shared/api';
 
 type BetWithMatch = {
   id: string;
@@ -15,22 +15,11 @@ export type SettleBetsResult = {
 };
 
 export const settleBets = async (client: CoreApiClient): Promise<SettleBetsResult> => {
-  const bets = await fetchAllPages<BetWithMatch>(async (after) => {
-    const { bets: page } = await client.query({
-      bets: {
-        __args: { first: PAGE_SIZE, after },
-        edges: {
-          node: {
-            id: true,
-            betValue: true,
-            won: true,
-            match: { result: true },
-          },
-        },
-        pageInfo: { hasNextPage: true, endCursor: true },
-      },
-    });
-    return page;
+  const bets = await fetchAllRecords<BetWithMatch>(client, 'bets', {
+    id: true,
+    betValue: true,
+    won: true,
+    match: { result: true },
   });
 
   const updates: Array<{ id: string; data: { won: boolean } }> = [];
