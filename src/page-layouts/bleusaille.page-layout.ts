@@ -34,7 +34,7 @@ export default definePageLayout({
       universalIdentifier: 'fc753665-d6d8-4592-b637-efbc6bbcf235',
       title: 'Leaderboard',
       position: 0,
-      icon: 'IconLayoutDashboard',
+      icon: 'IconTrophy',
       layoutMode: PageLayoutTabLayoutMode.GRID,
       widgets: [
         {
@@ -46,7 +46,7 @@ export default definePageLayout({
             row: 0,
             column: 0,
             rowSpan: 8,
-            columnSpan: 9,
+            columnSpan: 8,
           },
           configuration: {
             configurationType: 'LINE_CHART',
@@ -71,9 +71,9 @@ export default definePageLayout({
           type: 'FRONT_COMPONENT',
           gridPosition: {
             row: 0,
-            column: 9,
+            column: 8,
             rowSpan: 15,
-            columnSpan: 3,
+            columnSpan: 4,
           },
           configuration: {
             configurationType: 'FRONT_COMPONENT',
@@ -117,7 +117,7 @@ export default definePageLayout({
         },
         {
           universalIdentifier: '6dd1d37c-2893-45d7-b893-07095e378626',
-          title: 'Leaderboard (puntos + wcw puntev)',
+          title: 'Leaderboard (+ wcw puntev)',
           type: 'RECORD_TABLE',
           objectUniversalIdentifier:
             STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS.person.universalIdentifier,
@@ -125,7 +125,7 @@ export default definePageLayout({
             row: 8,
             column: 6,
             rowSpan: 11,
-            columnSpan: 3,
+            columnSpan: 2,
           },
           configuration: {
             configurationType: 'RECORD_TABLE',
@@ -141,7 +141,7 @@ export default definePageLayout({
             row: 21,
             column: 0,
             rowSpan: 8,
-            columnSpan: 9,
+            columnSpan: 8,
           },
           configuration: {
             configurationType: 'LINE_CHART',
@@ -166,9 +166,9 @@ export default definePageLayout({
           type: 'FRONT_COMPONENT',
           gridPosition: {
             row: 21,
-            column: 9,
+            column: 8,
             rowSpan: 4,
-            columnSpan: 3,
+            columnSpan: 4,
           },
           configuration: {
             configurationType: 'FRONT_COMPONENT',
@@ -182,9 +182,9 @@ export default definePageLayout({
           type: 'FRONT_COMPONENT',
           gridPosition: {
             row: 21,
-            column: 9,
+            column: 8,
             rowSpan: 4,
-            columnSpan: 3,
+            columnSpan: 4,
           },
           configuration: {
             configurationType: 'FRONT_COMPONENT',
@@ -200,7 +200,7 @@ export default definePageLayout({
             row: 29,
             column: 0,
             rowSpan: 6,
-            columnSpan: 9,
+            columnSpan: 8,
           },
           configuration: {
             configurationType: 'FRONT_COMPONENT',
@@ -214,7 +214,7 @@ export default definePageLayout({
       universalIdentifier: '9e8e98e5-6e0a-4e39-b7f9-6ee1d9c14747',
       title: 'Live',
       position: 1,
-      icon: 'IconBallFootball',
+      icon: 'IconLivePhoto',
       layoutMode: PageLayoutTabLayoutMode.GRID,
       widgets: [
         {
