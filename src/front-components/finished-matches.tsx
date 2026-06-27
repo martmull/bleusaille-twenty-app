@@ -200,9 +200,9 @@ const MatchCard = ({ match, index }: { match: FinishedMatch; index: number }) =>
   <div
     style={{
       display: 'flex',
-      alignItems: 'stretch',
-      gap: '10px',
-      padding: '9px 11px',
+      flexDirection: 'column',
+      gap: '7px',
+      padding: '8px 11px',
       borderRadius: '12px',
       background: theme.surface,
       border: `1px solid ${theme.border}`,
@@ -213,11 +213,9 @@ const MatchCard = ({ match, index }: { match: FinishedMatch; index: number }) =>
     <div
       style={{
         display: 'flex',
-        flexDirection: 'column',
-        gap: '6px',
-        flex: '0 0 auto',
+        alignItems: 'center',
+        gap: '7px',
         minWidth: 0,
-        width: '150px',
       }}
     >
       <div
@@ -226,6 +224,7 @@ const MatchCard = ({ match, index }: { match: FinishedMatch; index: number }) =>
           alignItems: 'center',
           gap: '5px',
           minWidth: 0,
+          flex: '1 1 auto',
           fontSize: '12px',
           fontWeight: 700,
           color: theme.textPrimary,
@@ -240,7 +239,7 @@ const MatchCard = ({ match, index }: { match: FinishedMatch; index: number }) =>
         >
           {match.home}
         </span>
-        <span style={{ fontSize: '11px' }}>⚽</span>
+        <span style={{ fontSize: '11px', flex: '0 0 auto' }}>⚽</span>
         <span
           style={{
             overflow: 'hidden',
@@ -252,50 +251,41 @@ const MatchCard = ({ match, index }: { match: FinishedMatch; index: number }) =>
         </span>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <span
+        style={{
+          flex: '0 0 auto',
+          padding: '1px 8px',
+          borderRadius: '7px',
+          background: theme.scoreChipBackground,
+          fontSize: '13px',
+          fontWeight: 800,
+          letterSpacing: '0.5px',
+          color: theme.scoreChipText,
+        }}
+      >
+        {match.score || '–'}
+      </span>
+      {match.winners.length > 0 ? (
         <span
           style={{
-            padding: '2px 9px',
-            borderRadius: '7px',
-            background: theme.scoreChipBackground,
-            fontSize: '15px',
+            flex: '0 0 auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '3px',
+            fontSize: '12px',
             fontWeight: 800,
-            letterSpacing: '0.5px',
-            color: theme.scoreChipText,
+            color: theme.amber,
+            whiteSpace: 'nowrap',
           }}
         >
-          {match.score || '–'}
+          🏆 {match.puntos} puntos
         </span>
-        {match.winners.length > 0 ? (
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '3px',
-              fontSize: '12px',
-              fontWeight: 800,
-              color: theme.amber,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            🏆 {match.puntos} puntos
-          </span>
-        ) : null}
-      </div>
+      ) : null}
     </div>
 
-    <div
-      style={{
-        flex: '1 1 0',
-        minWidth: 0,
-        display: 'flex',
-        alignItems: 'center',
-        paddingLeft: '10px',
-        borderLeft: `1px solid ${theme.borderSubtle}`,
-      }}
-    >
-      <Winners match={match} />
-    </div>
+    <span style={{ height: '1px', width: '100%', background: theme.borderSubtle }} />
+
+    <Winners match={match} />
   </div>
   );
 };
