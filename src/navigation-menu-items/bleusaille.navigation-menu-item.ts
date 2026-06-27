@@ -7,6 +7,7 @@ export default defineNavigationMenuItem({
   name: 'Bleusaille',
   icon: 'IconTrophy',
   position: 0,
+  color: 'orange',
   type: NavigationMenuItemType.PAGE_LAYOUT,
   pageLayoutUniversalIdentifier: BLEUSAILLE_PAGE_LAYOUT_UNIVERSAL_IDENTIFIER,
 });
