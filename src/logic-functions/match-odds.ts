@@ -1,8 +1,9 @@
 import { defineLogicFunction, RoutePayload } from 'twenty-sdk/define';
 
 import { PUNTOS_SHARED_PER_MATCH } from 'src/constants/tournament';
-import { createCoreApiClient, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { createCoreApiClient, fetchAllRecords } from 'src/logic-functions/shared/api';
 import { getStageMultiplier } from 'src/logic-functions/shared/compute-puntos';
+import { cloneTotals, computeRanks, RankTotals } from 'src/logic-functions/shared/leaderboard';
 import { teamPairKey } from 'src/logic-functions/shared/team-aliases';
 import { BetValue } from 'src/objects/bet.object';
 
@@ -68,17 +69,6 @@ type MatchOddsResponse = {
   provisionalLeaderboard?: LeaderboardEntry[];
 };
 
-type RankTotals = Map<string, { firstName: string; total: number }>;
-
-const computeRanks = (totals: RankTotals): Map<string, number> => {
-  const sorted = [...totals.entries()].sort(
-    (a, b) => b[1].total - a[1].total || a[1].firstName.localeCompare(b[1].firstName),
-  );
-  const ranks = new Map<string, number>();
-  sorted.forEach(([id], index) => ranks.set(id, index + 1));
-  return ranks;
-};
-
 const outcomeFromScore = (homeScore: number, awayScore: number): BetValue =>
   homeScore > awayScore
     ? BetValue.HOME_WIN
@@ -96,9 +86,7 @@ const buildLeaderboard = (
   const winnerBets = matchBets.filter((bet) => bet.betValue === winningOutcome);
   const payout = winnerBets.length > 0 ? Math.round(pot / winnerBets.length) : 0;
 
-  const scenarioTotals: RankTotals = new Map(
-    [...baseTotals].map(([id, value]) => [id, { ...value }]),
-  );
+  const scenarioTotals = cloneTotals(baseTotals);
   for (const bet of winnerBets) {
     const id = bet.person?.id;
     const entry = id ? scenarioTotals.get(id) : undefined;
@@ -133,56 +121,29 @@ const fetchOutcomes = async (
   const client = createCoreApiClient();
 
   const [matches, bets, people] = await Promise.all([
-    fetchAllPages<MatchRecord>(async (after) => {
-      const { matches: page } = await client.query({
-        matches: {
-          __args: { first: PAGE_SIZE, after },
-          edges: {
-            node: {
-              home: true,
-              away: true,
-              stage: true,
-              homeQuote: true,
-              drawQuote: true,
-              awayQuote: true,
-              homeBreakeven: true,
-              drawBreakeven: true,
-              awayBreakeven: true,
-            },
-          },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
+    fetchAllRecords<MatchRecord>(client, 'matches', {
+      home: true,
+      away: true,
+      stage: true,
+      homeQuote: true,
+      drawQuote: true,
+      awayQuote: true,
+      homeBreakeven: true,
+      drawBreakeven: true,
+      awayBreakeven: true,
     }),
-    fetchAllPages<BetRecord>(async (after) => {
-      const { bets: page } = await client.query({
-        bets: {
-          __args: { first: PAGE_SIZE, after },
-          edges: {
-            node: {
-              betValue: true,
-              person: { id: true, name: { firstName: true } },
-              match: {
-                home: true,
-                away: true,
-              },
-            },
-          },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
+    fetchAllRecords<BetRecord>(client, 'bets', {
+      betValue: true,
+      person: { id: true, name: { firstName: true } },
+      match: {
+        home: true,
+        away: true,
+      },
     }),
-    fetchAllPages<PersonRecord>(async (after) => {
-      const { people: page } = await client.query({
-        people: {
-          __args: { first: PAGE_SIZE, after },
-          edges: { node: { id: true, puntos: true, name: { firstName: true } } },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
+    fetchAllRecords<PersonRecord>(client, 'people', {
+      id: true,
+      puntos: true,
+      name: { firstName: true },
     }),
   ]);
 

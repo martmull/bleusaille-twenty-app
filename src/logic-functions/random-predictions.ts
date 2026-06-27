@@ -1,11 +1,6 @@
 import { defineLogicFunction, RoutePayload } from 'twenty-sdk/define';
 
-import {
-  createCoreApiClient,
-  fetchAllPages,
-  PAGE_SIZE,
-  round2,
-} from 'src/logic-functions/shared/api';
+import { createCoreApiClient, fetchAllRecords, round2 } from 'src/logic-functions/shared/api';
 import {
   debugTippabgabe,
   KicktippSubmissionResult,
@@ -64,23 +59,12 @@ const handler = async (event: RoutePayload) => {
 
   const [chancesByPair, matches] = await Promise.all([
     fetchMatchResultChances(),
-    fetchAllPages<MatchRecord>(async (after) => {
-      const { matches: page } = await client.query({
-        matches: {
-          __args: { first: PAGE_SIZE, after },
-          edges: {
-            node: {
-              id: true,
-              name: true,
-              home: true,
-              away: true,
-              startDate: true,
-            },
-          },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
+    fetchAllRecords<MatchRecord>(client, 'matches', {
+      id: true,
+      name: true,
+      home: true,
+      away: true,
+      startDate: true,
     }),
   ]);
 

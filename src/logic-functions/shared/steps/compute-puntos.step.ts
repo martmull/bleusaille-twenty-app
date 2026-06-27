@@ -1,6 +1,6 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
-import { applyGroupedUpdates, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { applyGroupedUpdates, fetchAllRecords } from 'src/logic-functions/shared/api';
 import { computeBetPuntevs } from 'src/logic-functions/shared/bet-ev';
 import { computePuntos, PuntosBet } from 'src/logic-functions/shared/compute-puntos';
 import { BetValue } from 'src/objects/bet.object';
@@ -59,32 +59,34 @@ const prematchPickProbability = (betValue: string, match: BetMatch): number | nu
 };
 
 export const computeBetsPuntos = async (client: CoreApiClient): Promise<ComputePuntosResult> => {
-  const bets = await fetchAllPages<BetRecord>(async (after) => {
-    const { bets: page } = await client.query({
-      bets: {
-        __args: { first: PAGE_SIZE, after },
-        edges: {
-          node: {
-            id: true,
-            betValue: true,
-            won: true,
-            puntos: true,
-            puntevs: true,
-            match: {
-              id: true,
-              result: true,
-              stage: true,
-              prematchHomeCote: true,
-              prematchDrawCote: true,
-              prematchAwayCote: true,
-            },
-          },
-        },
-        pageInfo: { hasNextPage: true, endCursor: true },
-      },
-    });
-    return page;
+  const bets = await fetchAllRecords<BetRecord>(client, 'bets', {
+    id: true,
+    betValue: true,
+    won: true,
+    puntos: true,
+    puntevs: true,
+    match: {
+      id: true,
+      result: true,
+      stage: true,
+      prematchHomeCote: true,
+      prematchDrawCote: true,
+      prematchAwayCote: true,
+    },
   });
+
+  // How many bettors picked each (match, outcome) pair: the pot is shared
+  // between them, so this weights the expected puntos. Built once to avoid an
+  // O(n^2) re-scan of every bet inside the loop below.
+  const winnersByPick = new Map<string, number>();
+  for (const bet of bets) {
+    const matchId = bet.match?.id;
+    if (!matchId) {
+      continue;
+    }
+    const key = `${matchId}|${bet.betValue}`;
+    winnersByPick.set(key, (winnersByPick.get(key) ?? 0) + 1);
+  }
 
   const updates: Array<{ id: string; data: { puntos: number; puntevs: number | null } }> = [];
 
@@ -95,11 +97,7 @@ export const computeBetsPuntos = async (client: CoreApiClient): Promise<ComputeP
 
     const puntos = computePuntos(bet, bets);
 
-    // How many bettors picked the same outcome as this bet (the pot is shared
-    // between them), used to weight the expected puntos.
-    const winnersForPick = bets.filter(
-      (other) => other.match?.id === bet.match?.id && other.betValue === bet.betValue,
-    ).length;
+    const winnersForPick = winnersByPick.get(`${bet.match.id}|${bet.betValue}`) ?? 0;
 
     const puntevs = computeBetPuntevs({
       winnersForPick,

@@ -1,6 +1,6 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
-import { applyGroupedUpdates, chunk, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { applyGroupedUpdates, chunk, fetchAllRecords } from 'src/logic-functions/shared/api';
 import { KicktippBet, scrapeKicktippBets } from 'src/logic-functions/shared/kicktipp';
 import { matchKey } from 'src/logic-functions/shared/team-aliases';
 import { BetValue } from 'src/objects/bet.object';
@@ -24,36 +24,9 @@ export const syncBets = async (
   const bets = kicktippBets ?? (await scrapeKicktippBets());
 
   const [matches, people, existingBets] = await Promise.all([
-    fetchAllPages<MatchRecord>(async (after) => {
-      const { matches: page } = await client.query({
-        matches: {
-          __args: { first: PAGE_SIZE, after },
-          edges: { node: { id: true, home: true, away: true } },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
-    }),
-    fetchAllPages<PersonRecord>(async (after) => {
-      const { people: page } = await client.query({
-        people: {
-          __args: { first: PAGE_SIZE, after },
-          edges: { node: { id: true, name: { firstName: true } } },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
-    }),
-    fetchAllPages<BetRecord>(async (after) => {
-      const { bets: page } = await client.query({
-        bets: {
-          __args: { first: PAGE_SIZE, after },
-          edges: { node: { id: true, name: true, betValue: true } },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
-    }),
+    fetchAllRecords<MatchRecord>(client, 'matches', { id: true, home: true, away: true }),
+    fetchAllRecords<PersonRecord>(client, 'people', { id: true, name: { firstName: true } }),
+    fetchAllRecords<BetRecord>(client, 'bets', { id: true, name: true, betValue: true }),
   ]);
 
   const matchIdByKey = new Map(matches.map((match) => [matchKey(match.home, match.away), match.id]));

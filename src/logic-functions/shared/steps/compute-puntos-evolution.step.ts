@@ -1,11 +1,6 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
-import {
-  applyGroupedUpdates,
-  chunk,
-  fetchAllPages,
-  PAGE_SIZE,
-} from 'src/logic-functions/shared/api';
+import { applyGroupedUpdates, chunk, fetchAllRecords } from 'src/logic-functions/shared/api';
 
 const BASELINE_MATCH_END_DATE = '2026-06-10T00:00:00.000Z';
 
@@ -34,40 +29,18 @@ export const computePuntosEvolution = async (
   client: CoreApiClient,
 ): Promise<ComputePuntosEvolutionResult> => {
   const [bets, existing] = await Promise.all([
-    fetchAllPages<BetRecord>(async (after) => {
-      const { bets: page } = await client.query({
-        bets: {
-          __args: { first: PAGE_SIZE, after },
-          edges: {
-            node: {
-              id: true,
-              name: true,
-              puntos: true,
-              person: { id: true, name: { firstName: true } },
-              match: { id: true, endDate: true, result: true },
-            },
-          },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
+    fetchAllRecords<BetRecord>(client, 'bets', {
+      id: true,
+      name: true,
+      puntos: true,
+      person: { id: true, name: { firstName: true } },
+      match: { id: true, endDate: true, result: true },
     }),
-    fetchAllPages<EvolutionRecord>(async (after) => {
-      const { puntosEvolutions: page } = await client.query({
-        puntosEvolutions: {
-          __args: { first: PAGE_SIZE, after },
-          edges: {
-            node: {
-              id: true,
-              name: true,
-              matchEndDate: true,
-              points: true,
-            },
-          },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
+    fetchAllRecords<EvolutionRecord>(client, 'puntosEvolutions', {
+      id: true,
+      name: true,
+      matchEndDate: true,
+      points: true,
     }),
   ]);
 

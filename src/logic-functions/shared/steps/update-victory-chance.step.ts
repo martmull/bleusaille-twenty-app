@@ -1,6 +1,6 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
-import { applyGroupedUpdates, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { applyGroupedUpdates, fetchAllRecords } from 'src/logic-functions/shared/api';
 import { fetchWorldCupWinnerChances } from 'src/logic-functions/shared/odds';
 
 type PersonRecord = {
@@ -21,15 +21,10 @@ export const updateVictoryChance = async (
 ): Promise<UpdateVictoryChanceResult> => {
   const [chancesByTeam, people] = await Promise.all([
     winnerChances ?? fetchWorldCupWinnerChances(),
-    fetchAllPages<PersonRecord>(async (after) => {
-      const { people: page } = await client.query({
-        people: {
-          __args: { first: PAGE_SIZE, after },
-          edges: { node: { id: true, wcWinnerBet: true, victoryChance: true } },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
+    fetchAllRecords<PersonRecord>(client, 'people', {
+      id: true,
+      wcWinnerBet: true,
+      victoryChance: true,
     }),
   ]);
 

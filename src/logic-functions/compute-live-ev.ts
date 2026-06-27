@@ -3,8 +3,7 @@ import { defineLogicFunction } from 'twenty-sdk/define';
 import {
   applyGroupedUpdates,
   createCoreApiClient,
-  fetchAllPages,
-  PAGE_SIZE,
+  fetchAllRecords,
 } from 'src/logic-functions/shared/api';
 import { fetchWorldCupMatches } from 'src/logic-functions/shared/football-data';
 import { computeEv } from 'src/logic-functions/shared/steps/compute-ev.step';
@@ -26,17 +25,13 @@ const toLiveScore = (match: FootballDataMatch): string =>
 const handler = async () => {
   const client = createCoreApiClient();
 
-  const matches = await fetchAllPages<MatchRecord>(async (after) => {
-    const { matches: page } = await client.query({
-      matches: {
-        __args: { first: PAGE_SIZE, after },
-        edges: {
-          node: { id: true, name: true, score: true, startDate: true, endDate: true, result: true },
-        },
-        pageInfo: { hasNextPage: true, endCursor: true },
-      },
-    });
-    return page;
+  const matches = await fetchAllRecords<MatchRecord>(client, 'matches', {
+    id: true,
+    name: true,
+    score: true,
+    startDate: true,
+    endDate: true,
+    result: true,
   });
 
   const now = Date.now();

@@ -1,6 +1,11 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
-import { applyGroupedUpdates, fetchAllPages, PAGE_SIZE, round2 } from 'src/logic-functions/shared/api';
+import {
+  applyGroupedUpdates,
+  buildFieldUpdates,
+  fetchAllRecords,
+  round2,
+} from 'src/logic-functions/shared/api';
 
 type PersonRecord = {
   id: string;
@@ -17,33 +22,22 @@ export type UpdatePuntosWcwEvResult = {
 export const updatePuntosWcwEv = async (
   client: CoreApiClient,
 ): Promise<UpdatePuntosWcwEvResult> => {
-  const people = await fetchAllPages<PersonRecord>(async (after) => {
-    const { people: page } = await client.query({
-      people: {
-        __args: { first: PAGE_SIZE, after },
-        edges: {
-          node: { id: true, puntos: true, winnerBetPuntosEv: true, puntosWcwEv: true },
-        },
-        pageInfo: { hasNextPage: true, endCursor: true },
-      },
-    });
-    return page;
+  const people = await fetchAllRecords<PersonRecord>(client, 'people', {
+    id: true,
+    puntos: true,
+    winnerBetPuntosEv: true,
+    puntosWcwEv: true,
   });
 
-  const updates: Array<{ id: string; data: { puntosWcwEv: number | null } }> = [];
-
-  for (const person of people) {
-    const target =
+  const updates = buildFieldUpdates(
+    people,
+    'puntosWcwEv',
+    (person) => person.puntosWcwEv,
+    (person) =>
       person.puntos === null && person.winnerBetPuntosEv === null
         ? null
-        : round2((person.puntos ?? 0) + (person.winnerBetPuntosEv ?? 0));
-
-    if (person.puntosWcwEv === target) {
-      continue;
-    }
-
-    updates.push({ id: person.id, data: { puntosWcwEv: target } });
-  }
+        : round2((person.puntos ?? 0) + (person.winnerBetPuntosEv ?? 0)),
+  );
 
   const updated = await applyGroupedUpdates(updates, (ids, data) =>
     client.mutation({

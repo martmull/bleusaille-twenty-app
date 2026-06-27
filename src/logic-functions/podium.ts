@@ -1,6 +1,6 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
-import { createCoreApiClient, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { createCoreApiClient, fetchAllRecords } from 'src/logic-functions/shared/api';
 
 type PersonRecord = {
   name: { firstName: string | null } | null;
@@ -11,16 +11,12 @@ type PersonRecord = {
 const handler = async () => {
   const client = createCoreApiClient();
 
-  const people = await fetchAllPages<PersonRecord>(async (after) => {
-    const { people: page } = await client.query({
-      people: {
-        __args: { first: PAGE_SIZE, after, orderBy: [{ puntos: 'DescNullsLast' }] },
-        edges: { node: { name: { firstName: true }, puntos: true, winnings: true } },
-        pageInfo: { hasNextPage: true, endCursor: true },
-      },
-    });
-    return page;
-  });
+  const people = await fetchAllRecords<PersonRecord>(
+    client,
+    'people',
+    { name: { firstName: true }, puntos: true, winnings: true },
+    { orderBy: [{ puntos: 'DescNullsLast' }] },
+  );
 
   const namesByScore = new Map<number, string[]>();
   const winningsByScore = new Map<number, number | null>();

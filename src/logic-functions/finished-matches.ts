@@ -1,6 +1,7 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
-import { createCoreApiClient, fetchAllPages, PAGE_SIZE } from 'src/logic-functions/shared/api';
+import { createCoreApiClient, fetchAllRecords } from 'src/logic-functions/shared/api';
+import { cloneTotals, computeRanks, RankTotals } from 'src/logic-functions/shared/leaderboard';
 
 type MatchRecord = {
   id: string;
@@ -29,8 +30,6 @@ type Winner = {
   rankDelta: number;
 };
 
-type RankTotals = Map<string, { firstName: string; total: number }>;
-
 type FinishedMatch = {
   home: string;
   away: string;
@@ -44,51 +43,25 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
   const client = createCoreApiClient();
 
   const [matches, winningBets, people] = await Promise.all([
-    fetchAllPages<MatchRecord>(async (after) => {
-      const { matches: page } = await client.query({
-        matches: {
-          __args: { first: PAGE_SIZE, after },
-          edges: {
-            node: {
-              id: true,
-              home: true,
-              away: true,
-              score: true,
-              endDate: true,
-              result: true,
-            },
-          },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
+    fetchAllRecords<MatchRecord>(client, 'matches', {
+      id: true,
+      home: true,
+      away: true,
+      score: true,
+      endDate: true,
+      result: true,
     }),
-    fetchAllPages<WinningBetRecord>(async (after) => {
-      const { bets: page } = await client.query({
-        bets: {
-          __args: { first: PAGE_SIZE, after, filter: { won: { eq: true } } },
-          edges: {
-            node: {
-              puntos: true,
-              person: { id: true, name: { firstName: true } },
-              match: { id: true },
-            },
-          },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
-    }),
-    fetchAllPages<PersonRecord>(async (after) => {
-      const { people: page } = await client.query({
-        people: {
-          __args: { first: PAGE_SIZE, after },
-          edges: { node: { id: true, name: { firstName: true } } },
-          pageInfo: { hasNextPage: true, endCursor: true },
-        },
-      });
-      return page;
-    }),
+    fetchAllRecords<WinningBetRecord>(
+      client,
+      'bets',
+      {
+        puntos: true,
+        person: { id: true, name: { firstName: true } },
+        match: { id: true },
+      },
+      { filter: { won: { eq: true } } },
+    ),
+    fetchAllRecords<PersonRecord>(client, 'people', { id: true, name: { firstName: true } }),
   ]);
 
   type RawWinner = { name: string; personId: string; matchPuntos: number };
@@ -118,15 +91,6 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
       firstNameById.set(person.id, firstName);
     }
   }
-
-  const computeRanks = (totals: RankTotals): Map<string, number> => {
-    const sorted = [...totals.entries()].sort(
-      (a, b) => b[1].total - a[1].total || a[1].firstName.localeCompare(b[1].firstName),
-    );
-    const ranks = new Map<string, number>();
-    sorted.forEach(([id], index) => ranks.set(id, index + 1));
-    return ranks;
-  };
 
   const matchEndMsById = new Map<string, number>();
   for (const match of matches) {
@@ -179,9 +143,7 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
         const afterTotals = totalsUpTo(cutoffMs);
         const afterRanks = computeRanks(afterTotals);
 
-        const beforeTotals: RankTotals = new Map(
-          [...afterTotals.entries()].map(([id, value]) => [id, { ...value }]),
-        );
+        const beforeTotals = cloneTotals(afterTotals);
         for (const winner of rawWinners) {
           const total = beforeTotals.get(winner.personId);
           if (total) {
