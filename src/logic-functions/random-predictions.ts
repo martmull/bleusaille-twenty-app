@@ -6,15 +6,11 @@ import {
   KicktippSubmissionResult,
   submitKicktippTips,
 } from 'src/logic-functions/shared/kicktipp';
-import { fetchMatchResultChances } from 'src/logic-functions/shared/odds';
 import {
   OutcomeProbabilities,
   pickWeightedOutcome,
 } from 'src/logic-functions/shared/random-prediction';
-import {
-  canonicalTeamName,
-  teamPairKey,
-} from 'src/logic-functions/shared/team-aliases';
+import { computeEv } from 'src/logic-functions/shared/steps/compute-ev.step';
 import { BetValue } from 'src/objects/bet.object';
 
 type MatchRecord = {
@@ -23,6 +19,9 @@ type MatchRecord = {
   home: string | null;
   away: string | null;
   startDate: string | null;
+  homeQuote: number | null;
+  drawQuote: number | null;
+  awayQuote: number | null;
 };
 
 const BET_VALUE_LABELS: Record<BetValue, string> = {
@@ -48,6 +47,27 @@ const toPercentage = (probability: number): number =>
 const parseBoolean = (raw: string | undefined): boolean =>
   (raw ?? '').toLowerCase() === 'true';
 
+const quotesToProbabilities = (
+  home: number | null,
+  draw: number | null,
+  away: number | null,
+): OutcomeProbabilities | null => {
+  const homeInverse = home && home > 0 ? 1 / home : 0;
+  const drawInverse = draw && draw > 0 ? 1 / draw : 0;
+  const awayInverse = away && away > 0 ? 1 / away : 0;
+  const total = homeInverse + drawInverse + awayInverse;
+
+  if (total === 0) {
+    return null;
+  }
+
+  return {
+    home: homeInverse / total,
+    draw: drawInverse / total,
+    away: awayInverse / total,
+  };
+};
+
 const handler = async (event: RoutePayload) => {
   if (parseBoolean(event.queryStringParameters?.debug)) {
     return debugTippabgabe();
@@ -55,18 +75,23 @@ const handler = async (event: RoutePayload) => {
 
   const count = parseCount(event.queryStringParameters?.count);
   const submit = parseBoolean(event.queryStringParameters?.submit);
+  const refreshCotes = parseBoolean(event.queryStringParameters?.refreshCotes);
   const client = createCoreApiClient();
 
-  const [chancesByPair, matches] = await Promise.all([
-    fetchMatchResultChances(),
-    fetchAllRecords<MatchRecord>(client, 'matches', {
-      id: true,
-      name: true,
-      home: true,
-      away: true,
-      startDate: true,
-    }),
-  ]);
+  if (refreshCotes) {
+    await computeEv(client);
+  }
+
+  const matches = await fetchAllRecords<MatchRecord>(client, 'matches', {
+    id: true,
+    name: true,
+    home: true,
+    away: true,
+    startDate: true,
+    homeQuote: true,
+    drawQuote: true,
+    awayQuote: true,
+  });
 
   const now = Date.now();
 
@@ -103,17 +128,20 @@ const handler = async (event: RoutePayload) => {
 
     const home = match.home as string;
     const away = match.away as string;
-    const chance = chancesByPair.get(teamPairKey(home, away));
 
-    if (!chance) {
+    const baseProbabilities = quotesToProbabilities(
+      match.homeQuote,
+      match.drawQuote,
+      match.awayQuote,
+    );
+
+    if (!baseProbabilities) {
       continue;
     }
 
-    const homeProbability =
-      homeBonus*(chance.teamProbabilities.get(canonicalTeamName(home)) ?? 0);
-    const awayProbability =
-      awayBonus*(chance.teamProbabilities.get(canonicalTeamName(away)) ?? 0);
-    const drawProbability = drawBonus*chance.drawProbability;
+    const homeProbability = homeBonus * baseProbabilities.home;
+    const awayProbability = awayBonus * baseProbabilities.away;
+    const drawProbability = drawBonus * baseProbabilities.draw;
 
     const probabilities: OutcomeProbabilities = {
       home: homeProbability,
@@ -130,9 +158,9 @@ const handler = async (event: RoutePayload) => {
       away,
       startDate: match.startDate as string,
       quotes: {
-        home: round2(chance.teamPrices.get(canonicalTeamName(home)) ?? 0),
-        draw: round2(chance.drawPrice),
-        away: round2(chance.teamPrices.get(canonicalTeamName(away)) ?? 0),
+        home: round2(match.homeQuote ?? 0),
+        draw: round2(match.drawQuote ?? 0),
+        away: round2(match.awayQuote ?? 0),
       },
       probabilities: {
         home: toPercentage(homeProbability),
@@ -168,7 +196,7 @@ export default defineLogicFunction({
   universalIdentifier: 'fc58b370-2c82-450e-aea2-d0046cc5d838',
   name: 'random-predictions',
   description:
-    'Returns randomized result predictions for the next N upcoming matches, weighted by live bookmaker odds.',
+    'Returns randomized result predictions for the next N upcoming matches, weighted by the cotes stored on each match. Pass refreshCotes=true to recompute the cotes before predicting.',
   timeoutSeconds: 30,
   handler,
   httpRouteTriggerSettings: {
