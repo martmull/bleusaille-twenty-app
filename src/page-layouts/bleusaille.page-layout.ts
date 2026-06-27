@@ -14,6 +14,7 @@ import { MATCH_ON_BET_FIELD_UNIVERSAL_IDENTIFIER } from 'src/fields/match-on-bet
 import { PERSON_ON_BET_FIELD_UNIVERSAL_IDENTIFIER } from 'src/fields/person-on-bet.field';
 import {
   BET_OBJECT_UNIVERSAL_IDENTIFIER,
+  BET_PUNTEVS_FIELD_UNIVERSAL_IDENTIFIER,
   BET_PUNTOS_FIELD_UNIVERSAL_IDENTIFIER,
 } from 'src/objects/bet.object';
 import { LEADERBOARD_PUNTEVS_VIEW_UNIVERSAL_IDENTIFIER } from 'src/views/leaderboard-puntevs.view';
@@ -177,6 +178,34 @@ export default definePageLayout({
             configurationType: 'FRONT_COMPONENT',
             frontComponentUniversalIdentifier:
               SPACEX_PRICE_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
+          },
+        },
+        {
+          universalIdentifier: 'd5db6c66-63dc-4ceb-828f-8fbe920a01a5',
+          title: 'Puntevs evolution',
+          type: 'GRAPH',
+          objectUniversalIdentifier: BET_OBJECT_UNIVERSAL_IDENTIFIER,
+          gridPosition: {
+            row: 27,
+            column: 0,
+            rowSpan: 8,
+            columnSpan: 9,
+          },
+          configuration: {
+            configurationType: 'LINE_CHART',
+            aggregateFieldMetadataUniversalIdentifier:
+              BET_PUNTEVS_FIELD_UNIVERSAL_IDENTIFIER,
+            aggregateOperation: AggregateOperations.SUM,
+            primaryAxisGroupByFieldMetadataUniversalIdentifier:
+              MATCH_ON_BET_FIELD_UNIVERSAL_IDENTIFIER,
+            primaryAxisGroupBySubFieldName: 'startDate',
+            primaryAxisDateGranularity: ObjectRecordGroupByDateGranularity.DAY,
+            secondaryAxisGroupByFieldMetadataUniversalIdentifier:
+              PERSON_ON_BET_FIELD_UNIVERSAL_IDENTIFIER,
+            isCumulative: true,
+            isStacked: false,
+            displayDataLabel: false,
+            displayLegend: false,
           },
         },
       ],
