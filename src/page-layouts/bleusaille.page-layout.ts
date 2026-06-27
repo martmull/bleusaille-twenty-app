@@ -59,6 +59,7 @@ export default definePageLayout({
             primaryAxisDateGranularity: ObjectRecordGroupByDateGranularity.DAY,
             secondaryAxisGroupByFieldMetadataUniversalIdentifier:
               PERSON_ON_BET_FIELD_UNIVERSAL_IDENTIFIER,
+            secondaryAxisGroupBySubFieldName: 'name.firstName',
             isCumulative: true,
             isStacked: false,
             displayDataLabel: false,
@@ -154,6 +155,7 @@ export default definePageLayout({
             primaryAxisDateGranularity: ObjectRecordGroupByDateGranularity.DAY,
             secondaryAxisGroupByFieldMetadataUniversalIdentifier:
             PERSON_ON_BET_FIELD_UNIVERSAL_IDENTIFIER,
+            secondaryAxisGroupBySubFieldName: 'name.firstName',
             isCumulative: true,
             isStacked: false,
             displayDataLabel: false,
