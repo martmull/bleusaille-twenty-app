@@ -134,6 +134,8 @@ const OUTCOME_BET_LABEL: Record<OutcomeKey, string> = {
 
 const OUTCOME_ORDER: OutcomeKey[] = ['home', 'draw', 'away'];
 
+const POOL_STAGE_LABEL = 'Phase de groupes';
+
 const formatExpectedPuntos = (expectedPuntos: number | null): string =>
   expectedPuntos === null ? '—' : expectedPuntos.toFixed(1);
 
@@ -401,7 +403,15 @@ const UserRow = ({ user, index }: { user: OutcomeUser; index: number }) => {
   );
 };
 
-const OutcomeColumn = ({ outcome, style }: { outcome: OutcomeBets; style: ChipStyle }) => {
+const OutcomeColumn = ({
+  outcome,
+  style,
+  showExpectedPuntos,
+}: {
+  outcome: OutcomeBets;
+  style: ChipStyle;
+  showExpectedPuntos: boolean;
+}) => {
   const theme = getTheme(useColorScheme());
 
   return (
@@ -420,9 +430,11 @@ const OutcomeColumn = ({ outcome, style }: { outcome: OutcomeBets; style: ChipSt
         className="lm-outcome-sep"
         style={{ flex: '0 0 auto', alignSelf: 'stretch', width: '1px', background: theme.border }}
       />
-      <span style={{ fontSize: '18px', fontWeight: 800, color: theme.textPrimary, lineHeight: 1 }}>
-        {formatExpectedPuntos(outcome.expectedPuntos)}
-      </span>
+      {showExpectedPuntos ? (
+        <span style={{ fontSize: '18px', fontWeight: 800, color: theme.textPrimary, lineHeight: 1 }}>
+          {formatExpectedPuntos(outcome.expectedPuntos)}
+        </span>
+      ) : null}
       {outcome.probability !== null ? (
         <span style={{ fontSize: '14px', fontWeight: 700, color: theme.subtle, lineHeight: 1 }}>
           {formatProbability(outcome.probability)}
@@ -467,16 +479,21 @@ const OutcomeColumn = ({ outcome, style }: { outcome: OutcomeBets; style: ChipSt
 const BetsSection = ({
   outcomes,
   leaderboard,
+  isPool,
+  showExpectedPuntos,
 }: {
   outcomes: Outcomes;
   leaderboard: LeaderboardEntry[] | null;
+  isPool: boolean;
+  showExpectedPuntos: boolean;
 }) => {
   const theme = getTheme(useColorScheme());
+  const visibleOrder = isPool ? OUTCOME_ORDER : OUTCOME_ORDER.filter((key) => key !== 'draw');
 
   return (
     <div className="lm-bets-wrap">
       <div className="lm-bets">
-        {OUTCOME_ORDER.map((key, index) => (
+        {visibleOrder.map((key, index) => (
           <Fragment key={key}>
             {index > 0 ? (
               <span className="lm-bets-sep" style={{ background: theme.border }} />
@@ -484,6 +501,7 @@ const BetsSection = ({
             <OutcomeColumn
               outcome={outcomes[key]}
               style={{ betLabel: OUTCOME_BET_LABEL[key], ...theme.outcomeChips[key] }}
+              showExpectedPuntos={showExpectedPuntos}
             />
           </Fragment>
         ))}
@@ -601,6 +619,10 @@ const MatchCard = ({
   const theme = getTheme(useColorScheme());
   const isUpcoming = data.state === 'UPCOMING';
   const context = data.stageLabel ?? '';
+  const isPool = data.stageLabel === POOL_STAGE_LABEL;
+  const startDateInFuture = data.startDate
+    ? new Date(data.startDate).getTime() > Date.now()
+    : false;
 
   return (
     <div
@@ -687,7 +709,12 @@ const MatchCard = ({
         {outcomes ? (
           <>
             <div style={{ flex: '0 0 auto', height: '1px', background: theme.border }} />
-            <BetsSection outcomes={outcomes} leaderboard={leaderboard} />
+            <BetsSection
+              outcomes={outcomes}
+              leaderboard={leaderboard}
+              isPool={isPool}
+              showExpectedPuntos={!startDateInFuture}
+            />
           </>
         ) : null}
       </div>
