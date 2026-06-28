@@ -1,7 +1,7 @@
 import { defineLogicFunction } from 'twenty-sdk/define';
 
 import { createCoreApiClient, fetchAllRecords } from 'src/logic-functions/shared/api';
-import { cloneTotals, computeRanks, RankTotals } from 'src/logic-functions/shared/leaderboard';
+import { computeRanks, RankTotals } from 'src/logic-functions/shared/leaderboard';
 
 type MatchRecord = {
   id: string;
@@ -99,9 +99,14 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
     }
   }
 
-  const totalsByCutoff = new Map<number, RankTotals>();
-  const totalsUpTo = (cutoffMs: number): RankTotals => {
-    const cached = totalsByCutoff.get(cutoffMs);
+  const orderIndexById = new Map<string, number>();
+  [...matchEndMsById.keys()]
+    .sort((a, b) => matchEndMsById.get(a)! - matchEndMsById.get(b)! || a.localeCompare(b))
+    .forEach((id, index) => orderIndexById.set(id, index));
+
+  const totalsByOrder = new Map<number, RankTotals>();
+  const totalsUpToOrder = (orderIndex: number): RankTotals => {
+    const cached = totalsByOrder.get(orderIndex);
     if (cached) {
       return cached;
     }
@@ -110,8 +115,8 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
       totals.set(id, { firstName, total: 0 });
     }
     for (const [matchId, entry] of winnersByMatch) {
-      const endMs = matchEndMsById.get(matchId);
-      if (endMs === undefined || endMs > cutoffMs) {
+      const index = orderIndexById.get(matchId);
+      if (index === undefined || index > orderIndex) {
         continue;
       }
       for (const winner of entry.winners) {
@@ -123,33 +128,24 @@ const handler = async (): Promise<{ matches: FinishedMatch[] }> => {
         }
       }
     }
-    totalsByCutoff.set(cutoffMs, totals);
+    totalsByOrder.set(orderIndex, totals);
     return totals;
   };
 
   const finished = matches
     .filter((match) => match.result && match.home && match.away)
-    .sort(
-      (a, b) =>
-        new Date(b.endDate ?? 0).getTime() - new Date(a.endDate ?? 0).getTime(),
-    )
+    .sort((a, b) => (orderIndexById.get(b.id) ?? 0) - (orderIndexById.get(a.id) ?? 0))
     .map((match): FinishedMatch => {
       const entry = winnersByMatch.get(match.id);
       const rawWinners = entry?.winners ?? [];
 
       let winners: Winner[] = [];
       if (rawWinners.length > 0) {
-        const cutoffMs = matchEndMsById.get(match.id) ?? new Date(match.endDate ?? 0).getTime();
-        const afterTotals = totalsUpTo(cutoffMs);
+        const orderIndex = orderIndexById.get(match.id) ?? 0;
+        const afterTotals = totalsUpToOrder(orderIndex);
         const afterRanks = computeRanks(afterTotals);
 
-        const beforeTotals = cloneTotals(afterTotals);
-        for (const winner of rawWinners) {
-          const total = beforeTotals.get(winner.personId);
-          if (total) {
-            total.total -= winner.matchPuntos;
-          }
-        }
+        const beforeTotals = totalsUpToOrder(orderIndex - 1);
         const beforeRanks = computeRanks(beforeTotals);
 
         winners = rawWinners
