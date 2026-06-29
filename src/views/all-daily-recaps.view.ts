@@ -1,6 +1,7 @@
 import { defineView, ViewKey, ViewSortDirection, ViewType } from 'twenty-sdk/define';
 
 import {
+  DAILY_RECAP_ARTICLE_FIELD_UNIVERSAL_IDENTIFIER,
   DAILY_RECAP_DATE_FIELD_UNIVERSAL_IDENTIFIER,
   DAILY_RECAP_FUN_FACT_FIELD_UNIVERSAL_IDENTIFIER,
   DAILY_RECAP_HEADLINE_FIELD_UNIVERSAL_IDENTIFIER,
@@ -48,6 +49,13 @@ export default defineView({
       position: 3,
       isVisible: true,
       size: 280,
+    },
+    {
+      universalIdentifier: 'b7844851-4e9c-4492-ba55-bc80e708e0a4',
+      fieldMetadataUniversalIdentifier: DAILY_RECAP_ARTICLE_FIELD_UNIVERSAL_IDENTIFIER,
+      position: 3.5,
+      isVisible: true,
+      size: 400,
     },
     {
       universalIdentifier: 'c5eb3701-72f5-4aaa-855b-97fbeba0de99',

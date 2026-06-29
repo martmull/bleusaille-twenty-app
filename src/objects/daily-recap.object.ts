@@ -9,6 +9,8 @@ export const DAILY_RECAP_DATE_FIELD_UNIVERSAL_IDENTIFIER =
   'eddfae52-6d8c-4194-9040-9feea940b504';
 export const DAILY_RECAP_HEADLINE_FIELD_UNIVERSAL_IDENTIFIER =
   '132ded8b-c428-4d5b-a1f4-d57f7b052835';
+export const DAILY_RECAP_ARTICLE_FIELD_UNIVERSAL_IDENTIFIER =
+  '9f489ce3-da70-4627-9f72-989761367ca9';
 export const DAILY_RECAP_RANKING_MOVES_FIELD_UNIVERSAL_IDENTIFIER =
   '1ba5cad5-9875-425c-9663-2437c71546dd';
 export const DAILY_RECAP_NOTABLE_RESULTS_FIELD_UNIVERSAL_IDENTIFIER =
@@ -56,6 +58,14 @@ export default defineObject({
       label: 'Headline',
       description: 'Punchy funny headline for the day',
       icon: 'IconHeadline',
+    },
+    {
+      universalIdentifier: DAILY_RECAP_ARTICLE_FIELD_UNIVERSAL_IDENTIFIER,
+      type: FieldType.TEXT,
+      name: 'article',
+      label: 'Article',
+      description: 'Long-form funny write-up of the day',
+      icon: 'IconArticle',
     },
     {
       universalIdentifier: DAILY_RECAP_RANKING_MOVES_FIELD_UNIVERSAL_IDENTIFIER,

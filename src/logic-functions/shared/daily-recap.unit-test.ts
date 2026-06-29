@@ -11,8 +11,8 @@ import {
 const DAY_START = Date.parse('2026-06-28T00:00:00Z');
 
 const people: RecapPersonRecord[] = [
-  { id: 'p1', name: { firstName: 'Alice' } },
-  { id: 'p2', name: { firstName: 'Bob' } },
+  { id: 'p1', name: { firstName: 'Alice' }, wcWinnerBet: 'Brazil', victoryChance: 18 },
+  { id: 'p2', name: { firstName: 'Bob' }, wcWinnerBet: 'France', victoryChance: 22 },
 ];
 
 const match = (overrides: Partial<RecapMatchRecord> = {}): RecapMatchRecord => ({
@@ -21,6 +21,7 @@ const match = (overrides: Partial<RecapMatchRecord> = {}): RecapMatchRecord => (
   away: 'Brazil',
   score: '1-0',
   result: 'HOME_WIN',
+  stage: 'GROUP_STAGE',
   endDate: '2026-06-28T20:00:00Z',
   prematchHomeCote: 1.5,
   prematchDrawCote: 3.5,
@@ -31,6 +32,7 @@ const match = (overrides: Partial<RecapMatchRecord> = {}): RecapMatchRecord => (
 const bet = (overrides: Partial<RecapBetRecord> = {}): RecapBetRecord => ({
   won: true,
   puntos: 10,
+  puntevs: 5,
   person: { id: 'p1', name: { firstName: 'Alice' } },
   match: { id: 'm', endDate: '2026-06-28T20:00:00Z', result: 'HOME_WIN' },
   ...overrides,
@@ -214,5 +216,79 @@ describe('buildFallbackCopy', () => {
 
     expect(copy.notableResults).toContain('Brazil');
     expect(copy.notableResults).toContain('6.4');
+  });
+
+  it('writes a non-empty long-form article', () => {
+    const facts = buildRecapFacts([match()], [bet()], people, DAY_START);
+    const copy = buildFallbackCopy(facts);
+
+    expect(copy.article.length).toBeGreaterThan(0);
+  });
+});
+
+describe('puntevs and final-winner facts', () => {
+  it('computes puntevs standings with the luck gap (real minus expected)', () => {
+    const m = { id: 'm1', endDate: '2026-06-20T20:00:00Z', result: 'HOME_WIN' };
+    const facts = buildRecapFacts(
+      [],
+      [
+        bet({ person: { id: 'p1', name: { firstName: 'Alice' } }, puntos: 30, puntevs: 10, match: m }),
+        bet({ person: { id: 'p2', name: { firstName: 'Bob' } }, puntos: 5, puntevs: 20, match: m }),
+      ],
+      people,
+      DAY_START,
+    );
+
+    const alice = facts.puntevsStandings.find((s) => s.name === 'Alice');
+    const bob = facts.puntevsStandings.find((s) => s.name === 'Bob');
+    expect(alice).toMatchObject({ puntevs: 10, puntos: 30, luck: 20, rank: 2 });
+    expect(bob).toMatchObject({ puntevs: 20, puntos: 5, luck: -15, rank: 1 });
+  });
+
+  it('groups final-winner bets and flags a picked team that gets knocked out', () => {
+    const facts = buildRecapFacts(
+      [
+        match({
+          id: 'ko',
+          home: 'France',
+          away: 'Brazil',
+          result: 'HOME_WIN',
+          score: '2-0',
+          stage: 'QUARTER_FINALS',
+        }),
+      ],
+      [],
+      people,
+      DAY_START,
+    );
+
+    expect(facts.winnerBets).toEqual([
+      { team: 'Brazil', backers: ['Alice'], victoryChance: 18 },
+      { team: 'France', backers: ['Bob'], victoryChance: 22 },
+    ]);
+
+    expect(facts.winnerTeamNews.find((n) => n.team === 'Brazil')).toMatchObject({
+      outcome: 'lost',
+      eliminated: true,
+      backers: ['Alice'],
+    });
+    expect(facts.winnerTeamNews.find((n) => n.team === 'France')).toMatchObject({
+      outcome: 'won',
+      eliminated: false,
+    });
+  });
+
+  it('does not eliminate a picked team that only loses a group-stage match', () => {
+    const facts = buildRecapFacts(
+      [match({ home: 'France', away: 'Brazil', result: 'HOME_WIN', stage: 'GROUP_STAGE' })],
+      [],
+      people,
+      DAY_START,
+    );
+
+    expect(facts.winnerTeamNews.find((n) => n.team === 'Brazil')).toMatchObject({
+      outcome: 'lost',
+      eliminated: false,
+    });
   });
 });

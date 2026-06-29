@@ -44,6 +44,7 @@ const isRecapCopy = (value: unknown): value is RecapCopy =>
   typeof value === 'object' &&
   value !== null &&
   typeof (value as RecapCopy).headline === 'string' &&
+  typeof (value as RecapCopy).article === 'string' &&
   typeof (value as RecapCopy).rankingMoves === 'string' &&
   typeof (value as RecapCopy).notableResults === 'string' &&
   typeof (value as RecapCopy).funFact === 'string' &&
@@ -79,6 +80,7 @@ const generateRecapForDay = async (
     name: `Récap — ${dayLabelFormatter.format(new Date(dayStart))}`,
     recapDate,
     headline: copy.headline,
+    article: copy.article,
     rankingMoves: copy.rankingMoves,
     notableResults: copy.notableResults,
     funFact: copy.funFact,
@@ -113,6 +115,7 @@ const handler = async (event?: RoutePayload) => {
       away: true,
       score: true,
       result: true,
+      stage: true,
       endDate: true,
       prematchHomeCote: true,
       prematchDrawCote: true,
@@ -121,12 +124,15 @@ const handler = async (event?: RoutePayload) => {
     fetchAllRecords<RecapBetRecord>(client, 'bets', {
       won: true,
       puntos: true,
+      puntevs: true,
       person: { id: true, name: { firstName: true } },
       match: { id: true, endDate: true, result: true },
     }),
     fetchAllRecords<RecapPersonRecord>(client, 'people', {
       id: true,
       name: { firstName: true },
+      wcWinnerBet: true,
+      victoryChance: true,
     }),
     fetchAllRecords<DailyRecapRecord>(client, 'dailyRecaps', {
       id: true,
