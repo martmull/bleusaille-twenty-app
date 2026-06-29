@@ -33,6 +33,8 @@ export type RecapFacts = {
   flopBettorOfDay: { name: string; lost: number } | null;
   currentWinStreak: { name: string; length: number } | null;
   currentLossStreak: { name: string; length: number } | null;
+  standings: Array<{ name: string; rank: number; total: number; delta: number }>;
+  dayBoard: Array<{ name: string; won: number; lost: number; puntos: number }>;
 };
 
 export type RecapCopy = {
@@ -204,14 +206,21 @@ export const buildRecapFacts = (
   };
 
   const beforeRanks = computeRanks(totalsAsOf(dayStart));
-  const afterRanks = computeRanks(totalsAsOf(dayEnd));
+  const afterTotals = totalsAsOf(dayEnd);
+  const afterRanks = computeRanks(afterTotals);
 
-  const rankingMoves = [...afterRanks.entries()]
-    .map(([personId, to]) => {
-      const from = beforeRanks.get(personId) ?? to;
-      return { name: nameById.get(personId) ?? '?', from, to, delta: from - to };
-    })
-    .filter((move) => move.delta !== 0)
+  const standings = [...afterRanks.entries()]
+    .map(([personId, rank]) => ({
+      name: nameById.get(personId) ?? '?',
+      rank,
+      total: afterTotals.get(personId)?.total ?? 0,
+      delta: (beforeRanks.get(personId) ?? rank) - rank,
+    }))
+    .sort((a, b) => a.rank - b.rank);
+
+  const rankingMoves = standings
+    .filter((entry) => entry.delta !== 0)
+    .map(({ name, rank, delta }) => ({ name, from: rank + delta, to: rank, delta }))
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta) || a.name.localeCompare(b.name));
 
   const yesterdayBets = bets.filter((bet) => {
@@ -219,34 +228,40 @@ export const buildRecapFacts = (
     return end >= dayStart && end < dayEnd;
   });
 
-  const wonByPerson = new Map<string, { name: string; puntos: number }>();
-  const lostByPerson = new Map<string, { name: string; lost: number }>();
+  const dayByPerson = new Map<
+    string,
+    { name: string; won: number; lost: number; puntos: number }
+  >();
   for (const bet of yesterdayBets) {
     const name = firstNameOf(bet.person);
     const personId = bet.person?.id;
-    if (!name || !personId) {
+    if (!name || !personId || bet.won === null) {
       continue;
     }
+    const entry = dayByPerson.get(personId) ?? { name, won: 0, lost: 0, puntos: 0 };
     if (bet.won === true) {
-      const entry = wonByPerson.get(personId) ?? { name, puntos: 0 };
+      entry.won += 1;
       entry.puntos += bet.puntos ?? 0;
-      wonByPerson.set(personId, entry);
-    }
-    if (bet.won === false) {
-      const entry = lostByPerson.get(personId) ?? { name, lost: 0 };
+    } else {
       entry.lost += 1;
-      lostByPerson.set(personId, entry);
     }
+    dayByPerson.set(personId, entry);
   }
 
+  const dayBoard = [...dayByPerson.values()].sort(
+    (a, b) => b.puntos - a.puntos || a.name.localeCompare(b.name),
+  );
+
   const topBettorOfDay =
-    [...wonByPerson.values()]
+    dayBoard
       .filter((entry) => entry.puntos > 0)
-      .sort((a, b) => b.puntos - a.puntos || a.name.localeCompare(b.name))[0] ?? null;
+      .map((entry) => ({ name: entry.name, puntos: entry.puntos }))[0] ?? null;
 
   const flopBettorOfDay =
-    [...lostByPerson.values()]
-      .sort((a, b) => b.lost - a.lost || a.name.localeCompare(b.name))[0] ?? null;
+    [...dayBoard]
+      .filter((entry) => entry.lost > 0)
+      .sort((a, b) => b.lost - a.lost || a.name.localeCompare(b.name))
+      .map((entry) => ({ name: entry.name, lost: entry.lost }))[0] ?? null;
 
   return {
     date: new Date(dayStart).toISOString(),
@@ -257,6 +272,8 @@ export const buildRecapFacts = (
     flopBettorOfDay,
     currentWinStreak: currentStreak(bets, true, dayEnd),
     currentLossStreak: currentStreak(bets, false, dayEnd),
+    standings,
+    dayBoard,
   };
 };
 
