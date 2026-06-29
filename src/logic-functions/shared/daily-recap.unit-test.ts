@@ -53,7 +53,7 @@ describe('buildRecapFacts', () => {
     expect(facts.matches[0].winner).toBe('France');
   });
 
-  it('flags an outsider win when the winning prematch cote is high', () => {
+  it('flags only genuine underdog team wins, not draws or favourites', () => {
     const facts = buildRecapFacts(
       [
         match({
@@ -63,6 +63,12 @@ describe('buildRecapFacts', () => {
           prematchAwayCote: 6.4,
         }),
         match({ id: 'favourite', result: 'HOME_WIN', prematchHomeCote: 1.4 }),
+        match({
+          id: 'high-cote-draw',
+          result: 'NULL_OR_DRAW',
+          score: '0-0',
+          prematchDrawCote: 4.1,
+        }),
       ],
       [],
       people,
@@ -92,7 +98,7 @@ describe('buildRecapFacts', () => {
     expect(alice).toEqual({ name: 'Alice', from: 2, to: 1, delta: 1 });
   });
 
-  it('reports the longest win and loss streaks across all bets', () => {
+  it('reports the current ongoing win and loss streaks', () => {
     const dated = (day: number, result: string) => ({
       id: `m${day}`,
       endDate: `2026-06-${String(day).padStart(2, '0')}T20:00:00Z`,
@@ -120,8 +126,41 @@ describe('buildRecapFacts', () => {
       DAY_START,
     );
 
-    expect(facts.longestWinStreak).toEqual({ name: 'Alice', length: 3 });
-    expect(facts.longestLossStreak).toEqual({ name: 'Bob', length: 2 });
+    expect(facts.currentWinStreak).toEqual({ name: 'Alice', length: 3 });
+    expect(facts.currentLossStreak).toEqual({ name: 'Bob', length: 2 });
+  });
+
+  it('uses the trailing run, not the season record (a loss resets the streak)', () => {
+    const dated = (day: number, result: string) => ({
+      id: `m${day}`,
+      endDate: `2026-06-${String(day).padStart(2, '0')}T20:00:00Z`,
+      result,
+    });
+
+    const facts = buildRecapFacts(
+      [],
+      [
+        bet({ won: true, match: dated(10, 'HOME_WIN') }),
+        bet({ won: true, match: dated(11, 'HOME_WIN') }),
+        bet({ won: true, match: dated(12, 'HOME_WIN') }),
+        bet({ won: false, match: dated(13, 'HOME_WIN') }),
+        bet({ won: true, match: dated(14, 'HOME_WIN') }),
+        bet({
+          won: true,
+          person: { id: 'p2', name: { firstName: 'Bob' } },
+          match: dated(13, 'HOME_WIN'),
+        }),
+        bet({
+          won: true,
+          person: { id: 'p2', name: { firstName: 'Bob' } },
+          match: dated(14, 'HOME_WIN'),
+        }),
+      ],
+      people,
+      DAY_START,
+    );
+
+    expect(facts.currentWinStreak).toEqual({ name: 'Bob', length: 2 });
   });
 
   it('only counts streaks settled up to the recapped day (backfill snapshot)', () => {
@@ -150,8 +189,8 @@ describe('buildRecapFacts', () => {
       Date.parse('2026-06-12T00:00:00Z'),
     );
 
-    expect(onJune11.longestWinStreak).toEqual({ name: 'Alice', length: 2 });
-    expect(onJune12.longestWinStreak).toEqual({ name: 'Alice', length: 3 });
+    expect(onJune11.currentWinStreak).toEqual({ name: 'Alice', length: 2 });
+    expect(onJune12.currentWinStreak).toEqual({ name: 'Alice', length: 3 });
   });
 });
 

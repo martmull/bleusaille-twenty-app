@@ -31,8 +31,8 @@ export type RecapFacts = {
   rankingMoves: Array<{ name: string; from: number; to: number; delta: number }>;
   topBettorOfDay: { name: string; puntos: number } | null;
   flopBettorOfDay: { name: string; lost: number } | null;
-  longestWinStreak: { name: string; length: number } | null;
-  longestLossStreak: { name: string; length: number } | null;
+  currentWinStreak: { name: string; length: number } | null;
+  currentLossStreak: { name: string; length: number } | null;
 };
 
 export type RecapCopy = {
@@ -70,12 +70,30 @@ const winningCote = (match: RecapMatchRecord): number | null => {
 };
 
 const OUTSIDER_MIN_COTE = 2.2;
+const MIN_STREAK = 2;
+
+// An outsider win is a team (not a draw) that was the least-favoured outcome:
+// its prematch cote is the highest of the three and clears the floor.
+const isOutsiderWin = (match: RecapMatchRecord): boolean => {
+  if (match.result !== HOME_WIN && match.result !== AWAY_WIN) {
+    return false;
+  }
+  const cote = winningCote(match);
+  if (cote === null || cote < OUTSIDER_MIN_COTE) {
+    return false;
+  }
+  const others = [match.prematchHomeCote, match.prematchDrawCote, match.prematchAwayCote];
+  return others.every((other) => other === null || other <= cote);
+};
 
 const firstNameOf = (
   person: { name: { firstName: string | null } | null } | null,
 ): string | null => person?.name?.firstName ?? null;
 
-const longestRun = (
+// The current ongoing run of `wanted` results as of `cutoff`: the trailing
+// streak ending at each person's most recent settled bet. Returns the person on
+// the longest such run (a heater of wins, or a cold spell of losses).
+const currentStreak = (
   bets: RecapBetRecord[],
   wanted: boolean,
   cutoff: number,
@@ -106,17 +124,15 @@ const longestRun = (
       (a, b) => timeOf(a.match!.endDate) - timeOf(b.match!.endDate),
     );
     let run = 0;
-    let longest = 0;
-    for (const bet of ordered) {
-      if (bet.won === wanted) {
+    for (let index = ordered.length - 1; index >= 0; index -= 1) {
+      if (ordered[index].won === wanted) {
         run += 1;
-        longest = Math.max(longest, run);
       } else {
-        run = 0;
+        break;
       }
     }
-    if (longest >= 2 && (!best || longest > best.length)) {
-      best = { name, length: longest };
+    if (run >= MIN_STREAK && (!best || run > best.length)) {
+      best = { name, length: run };
     }
   }
 
@@ -143,11 +159,8 @@ export const buildRecapFacts = (
   }));
 
   const outsiderWins = yesterdayMatches
-    .map((match) => ({ match, cote: winningCote(match) }))
-    .filter(
-      (entry): entry is { match: RecapMatchRecord; cote: number } =>
-        entry.cote !== null && entry.cote >= OUTSIDER_MIN_COTE,
-    )
+    .filter(isOutsiderWin)
+    .map((match) => ({ match, cote: winningCote(match) as number }))
     .sort((a, b) => b.cote - a.cote)
     .map(({ match, cote }) => ({
       label: `${match.home ?? '?'} - ${match.away ?? '?'}`,
@@ -242,8 +255,8 @@ export const buildRecapFacts = (
     rankingMoves,
     topBettorOfDay,
     flopBettorOfDay,
-    longestWinStreak: longestRun(bets, true, dayEnd),
-    longestLossStreak: longestRun(bets, false, dayEnd),
+    currentWinStreak: currentStreak(bets, true, dayEnd),
+    currentLossStreak: currentStreak(bets, false, dayEnd),
   };
 };
 
@@ -283,14 +296,14 @@ export const buildFallbackCopy = (facts: RecapFacts): RecapCopy => {
       `${facts.topBettorOfDay.name} rafle ${facts.topBettorOfDay.puntos} puntos sur la journée. 🤑`,
     );
   }
-  if (facts.longestWinStreak) {
+  if (facts.currentWinStreak) {
     funFactParts.push(
-      `Record de la saison : ${facts.longestWinStreak.name} et sa série de ${facts.longestWinStreak.length} paris gagnés d'affilée. 🔥`,
+      `${facts.currentWinStreak.name} est en feu avec ${facts.currentWinStreak.length} paris gagnés d'affilée. 🔥`,
     );
   }
-  if (facts.longestLossStreak) {
+  if (facts.currentLossStreak) {
     funFactParts.push(
-      `À l'opposé, ${facts.longestLossStreak.name} détient les ${facts.longestLossStreak.length} défaites de rang. 💀`,
+      `À l'opposé, ${facts.currentLossStreak.name} enchaîne ${facts.currentLossStreak.length} défaites de suite. 💀`,
     );
   }
 
