@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildFallbackCopy,
   buildRecapFacts,
+  pastRecapDayStarts,
   RecapBetRecord,
   RecapMatchRecord,
   RecapPersonRecord,
@@ -122,6 +123,28 @@ describe('buildRecapFacts', () => {
 
     expect(facts.longestWinStreak).toEqual({ name: 'Alice', length: 3 });
     expect(facts.longestLossStreak).toEqual({ name: 'Bob', length: 2 });
+  });
+});
+
+describe('pastRecapDayStarts', () => {
+  it('returns distinct UTC day starts of finished matches before today', () => {
+    const todayStart = Date.parse('2026-06-29T00:00:00Z');
+
+    const days = pastRecapDayStarts(
+      [
+        match({ id: 'a', endDate: '2026-06-27T20:00:00Z' }),
+        match({ id: 'b', endDate: '2026-06-27T16:00:00Z' }),
+        match({ id: 'c', endDate: '2026-06-28T18:00:00Z' }),
+        match({ id: 'today', endDate: '2026-06-29T18:00:00Z' }),
+        match({ id: 'pending', result: null, endDate: '2026-06-26T18:00:00Z' }),
+      ],
+      todayStart,
+    );
+
+    expect(days).toEqual([
+      Date.parse('2026-06-27T00:00:00Z'),
+      Date.parse('2026-06-28T00:00:00Z'),
+    ]);
   });
 });
 

@@ -211,6 +211,22 @@ export default definePageLayout({
             WINNER_BETS_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
           },
         },
+        {
+          universalIdentifier: '7fe5b9b2-1c5e-4d8a-9f2b-3a6d4c0e8b71',
+          title: 'La Gazette de la Bleusaille',
+          type: 'FRONT_COMPONENT',
+          gridPosition: {
+            row: 35,
+            column: 0,
+            rowSpan: 15,
+            columnSpan: 12,
+          },
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier:
+              DAILY_RECAP_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
+          },
+        },
       ],
     },
     {

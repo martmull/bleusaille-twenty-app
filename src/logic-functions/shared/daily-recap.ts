@@ -47,7 +47,31 @@ const HOME_WIN = 'HOME_WIN';
 const AWAY_WIN = 'AWAY_WIN';
 const NULL_OR_DRAW = 'NULL_OR_DRAW';
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 const timeOf = (date: string | null): number => (date ? new Date(date).getTime() : 0);
+
+export const utcDayStart = (ms: number): number => {
+  const date = new Date(ms);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+};
+
+export const pastRecapDayStarts = (
+  matches: RecapMatchRecord[],
+  todayStart: number,
+): number[] => {
+  const days = new Set<number>();
+  for (const match of matches) {
+    if (!match.result || !match.endDate) {
+      continue;
+    }
+    const day = utcDayStart(timeOf(match.endDate));
+    if (day < todayStart) {
+      days.add(day);
+    }
+  }
+  return [...days].sort((a, b) => a - b);
+};
 
 const winnerLabel = (match: RecapMatchRecord): string => {
   if (match.result === HOME_WIN) return match.home ?? 'Domicile';
@@ -115,7 +139,7 @@ export const buildRecapFacts = (
   people: RecapPersonRecord[],
   dayStart: number,
 ): RecapFacts => {
-  const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+  const dayEnd = dayStart + MS_PER_DAY;
 
   const yesterdayMatches = matches.filter((match) => {
     const end = timeOf(match.endDate);
