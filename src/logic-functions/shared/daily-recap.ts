@@ -1,3 +1,4 @@
+import { round2 } from 'src/logic-functions/shared/api';
 import { computeRanks, RankTotals } from 'src/logic-functions/shared/leaderboard';
 
 export type RecapMatchRecord = {
@@ -15,6 +16,7 @@ export type RecapMatchRecord = {
 export type RecapBetRecord = {
   won: boolean | null;
   puntos: number | null;
+  puntevs?: number | null;
   person: { id: string | null; name: { firstName: string | null } | null } | null;
   match: { id: string | null; endDate: string | null; result: string | null } | null;
 };
@@ -22,6 +24,11 @@ export type RecapBetRecord = {
 export type RecapPersonRecord = {
   id: string;
   name: { firstName: string | null } | null;
+  // Season-long "World Cup winner" outlook, current snapshot (not historical).
+  wcWinnerBet?: string | null;
+  victoryChance?: number | null;
+  winnerBetPuntosEv?: number | null;
+  puntosWcwEv?: number | null;
 };
 
 export type RecapFacts = {
@@ -34,6 +41,25 @@ export type RecapFacts = {
   currentWinStreak: { name: string; length: number } | null;
   currentLossStreak: { name: string; length: number } | null;
   standings: Array<{ name: string; rank: number; total: number; delta: number }>;
+  // Expected-points (puntevs) standings as of the recap day: how many puntos
+  // each bettor was statistically "supposed" to have, next to what they really
+  // banked. luck = puntos - puntevs (positive = lucky/overperforming).
+  puntevsStandings: Array<{
+    name: string;
+    rank: number;
+    puntevs: number;
+    puntos: number;
+    luck: number;
+  }>;
+  // Current "World Cup winner" bets and what they're worth, ranked by the
+  // projected final total (banked puntos + expected puntos from the winner bet).
+  winnerOutlook: Array<{
+    name: string;
+    team: string;
+    victoryChancePct: number | null;
+    winnerBetEv: number | null;
+    projectedTotal: number | null;
+  }>;
   dayBoard: Array<{ name: string; won: number; lost: number; puntos: number }>;
 };
 
@@ -179,16 +205,20 @@ export const buildRecapFacts = (
     }
   }
 
-  const totalsAsOf = (cutoff: number): RankTotals => {
+  const totalsAsOf = (
+    cutoff: number,
+    value: (bet: RecapBetRecord) => number | null,
+  ): RankTotals => {
     const totals: RankTotals = new Map();
     for (const [id, firstName] of nameById) {
       totals.set(id, { firstName, total: 0 });
     }
     for (const bet of bets) {
       const personId = bet.person?.id;
+      const amount = value(bet);
       if (
         !personId ||
-        bet.puntos === null ||
+        amount === null ||
         !bet.match?.result ||
         timeOf(bet.match.endDate) >= cutoff
       ) {
@@ -197,17 +227,44 @@ export const buildRecapFacts = (
       const entry = totals.get(personId);
       const firstName = firstNameOf(bet.person);
       if (entry) {
-        entry.total += bet.puntos;
+        entry.total += amount;
       } else if (firstName) {
-        totals.set(personId, { firstName, total: bet.puntos });
+        totals.set(personId, { firstName, total: amount });
       }
     }
     return totals;
   };
 
-  const beforeRanks = computeRanks(totalsAsOf(dayStart));
-  const afterTotals = totalsAsOf(dayEnd);
+  const beforeRanks = computeRanks(totalsAsOf(dayStart, (bet) => bet.puntos));
+  const afterTotals = totalsAsOf(dayEnd, (bet) => bet.puntos);
   const afterRanks = computeRanks(afterTotals);
+
+  const puntevsTotals = totalsAsOf(dayEnd, (bet) => bet.puntevs ?? null);
+  const puntevsRanks = computeRanks(puntevsTotals);
+  const puntevsStandings = [...puntevsRanks.entries()]
+    .map(([personId, rank]) => {
+      const puntevs = puntevsTotals.get(personId)?.total ?? 0;
+      const puntos = afterTotals.get(personId)?.total ?? 0;
+      return {
+        name: nameById.get(personId) ?? '?',
+        rank,
+        puntevs: round2(puntevs),
+        puntos,
+        luck: round2(puntos - puntevs),
+      };
+    })
+    .sort((a, b) => a.rank - b.rank);
+
+  const winnerOutlook = people
+    .map((person) => ({
+      name: person.name?.firstName ?? '?',
+      team: person.wcWinnerBet ?? '',
+      victoryChancePct: person.victoryChance ?? null,
+      winnerBetEv: person.winnerBetPuntosEv ?? null,
+      projectedTotal: person.puntosWcwEv ?? null,
+    }))
+    .filter((entry) => entry.team)
+    .sort((a, b) => (b.projectedTotal ?? 0) - (a.projectedTotal ?? 0));
 
   const standings = [...afterRanks.entries()]
     .map(([personId, rank]) => ({
@@ -273,6 +330,8 @@ export const buildRecapFacts = (
     currentWinStreak: currentStreak(bets, true, dayEnd),
     currentLossStreak: currentStreak(bets, false, dayEnd),
     standings,
+    puntevsStandings,
+    winnerOutlook,
     dayBoard,
   };
 };
