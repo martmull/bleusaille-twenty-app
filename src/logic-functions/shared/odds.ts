@@ -37,9 +37,12 @@ const DRAW_OUTCOME_NAME = 'draw';
 export const fetchWorldCupWinnerChances = async (): Promise<Map<string, number>> => {
   const response = await fetch(ODDS_API_URL);
 
+  const chances = new Map<string, number>();
+
   if (!response.ok) {
     await notifyOddsApiKeyExpired({ url: ODDS_API_URL, status: response.status });
-    throw new Error(`Odds API request failed: ${response.status}`);
+    console.error('Odds API request failed:', response.status);
+    return chances
   }
 
   const events = (await response.json()) as OddsEvent[];
@@ -49,7 +52,6 @@ export const fetchWorldCupWinnerChances = async (): Promise<Map<string, number>>
 
   const outcomes = bookmaker?.markets[0]?.outcomes ?? [];
 
-  const chances = new Map<string, number>();
   for (const outcome of outcomes) {
     if (outcome.price > 0) {
       chances.set(outcome.name.trim().toLowerCase(), Math.round((100 / outcome.price) * 10) / 10);
