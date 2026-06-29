@@ -6,6 +6,7 @@ import {
   STANDARD_OBJECT_UNIVERSAL_IDENTIFIERS,
 } from 'twenty-sdk/define';
 
+import { DAILY_RECAP_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/daily-recap';
 import { FINISHED_MATCHES_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/finished-matches';
 import { LIVE_MATCH_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/live-match';
 import { PODIUM_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER } from 'src/front-components/podium';
@@ -233,6 +234,31 @@ export default definePageLayout({
             configurationType: 'FRONT_COMPONENT',
             frontComponentUniversalIdentifier:
               LIVE_MATCH_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
+          },
+        },
+      ],
+    },
+    {
+      universalIdentifier: 'dc5e589a-d789-49a2-a5ec-263c0c8b15d2',
+      title: 'Gazette',
+      position: 2,
+      icon: 'IconNews',
+      layoutMode: PageLayoutTabLayoutMode.GRID,
+      widgets: [
+        {
+          universalIdentifier: '1886cc24-c5b9-4809-9f24-7fe40c3966be',
+          title: 'La Gazette de la Bleusaille',
+          type: 'FRONT_COMPONENT',
+          gridPosition: {
+            row: 0,
+            column: 0,
+            rowSpan: 12,
+            columnSpan: 12,
+          },
+          configuration: {
+            configurationType: 'FRONT_COMPONENT',
+            frontComponentUniversalIdentifier:
+              DAILY_RECAP_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
           },
         },
       ],
