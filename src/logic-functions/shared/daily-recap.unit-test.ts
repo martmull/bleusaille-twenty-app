@@ -279,8 +279,24 @@ describe('buildFallbackCopy', () => {
 
     expect(copy.article).toContain('Brazil');
     expect(copy.article).toContain('6.4');
-    // Results are rendered as a markdown bullet list.
-    expect(copy.article).toContain('- ');
+  });
+
+  it('varies the article from one day to the next', () => {
+    const sameFacts = (dayStart: number) =>
+      buildRecapFacts(
+        [match({ id: 'a' }), match({ id: 'b', result: 'AWAY_WIN', score: '0-2', prematchAwayCote: 6.4 })],
+        [bet({ puntos: 30 })],
+        people,
+        dayStart,
+      );
+
+    const dayOne = buildFallbackCopy(sameFacts(DAY_START)).article;
+    const dayTwo = buildFallbackCopy(sameFacts(DAY_START + 24 * 60 * 60 * 1000)).article;
+
+    // Same shape of facts on two different dates must not read identically.
+    expect(dayOne).not.toBe(dayTwo);
+    // ...but regenerating the same day stays stable.
+    expect(buildFallbackCopy(sameFacts(DAY_START)).article).toBe(dayOne);
   });
 
   it('surfaces the World Cup winner bet hopes in the article', () => {
