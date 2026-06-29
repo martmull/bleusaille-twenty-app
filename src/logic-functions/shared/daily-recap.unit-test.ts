@@ -259,15 +259,16 @@ describe('buildRecapFacts', () => {
 });
 
 describe('buildFallbackCopy', () => {
-  it('produces a quiet-day copy when nothing happened', () => {
+  it('produces a markdown article with a title on a quiet day', () => {
     const facts = buildRecapFacts([], [], people, DAY_START);
     const copy = buildFallbackCopy(facts);
 
-    expect(copy.mood).toBe('😴');
-    expect(copy.headline).toContain('blanche');
+    // Single free-form markdown field, opening on a ## title.
+    expect(copy.article.startsWith('## ')).toBe(true);
+    expect(copy.article).toContain('blanche');
   });
 
-  it('mentions the outsider in the notable results', () => {
+  it('mentions the outsider in the markdown article', () => {
     const facts = buildRecapFacts(
       [match({ result: 'AWAY_WIN', score: '0-2', prematchAwayCote: 6.4 })],
       [],
@@ -276,7 +277,23 @@ describe('buildFallbackCopy', () => {
     );
     const copy = buildFallbackCopy(facts);
 
-    expect(copy.notableResults).toContain('Brazil');
-    expect(copy.notableResults).toContain('6.4');
+    expect(copy.article).toContain('Brazil');
+    expect(copy.article).toContain('6.4');
+    // Results are rendered as a markdown bullet list.
+    expect(copy.article).toContain('- ');
+  });
+
+  it('surfaces the World Cup winner bet hopes in the article', () => {
+    const facts = buildRecapFacts(
+      [match()],
+      [],
+      [{ id: 'p1', name: { firstName: 'Alice' }, wcWinnerBet: 'France', victoryChance: 30 }],
+      DAY_START,
+    );
+    const copy = buildFallbackCopy(facts);
+
+    expect(copy.article).toContain('France');
+    // 170 * 8 / 1 = 1360 puntos for a lone backer.
+    expect(copy.article).toContain('1360');
   });
 });

@@ -73,11 +73,9 @@ export type RecapFacts = {
 };
 
 export type RecapCopy = {
-  headline: string;
-  rankingMoves: string;
-  notableResults: string;
-  funFact: string;
-  mood: string;
+  // The whole chronicle of the day as a single free-form markdown string
+  // (title, paragraphs, bullet points, emojis and stats).
+  article: string;
 };
 
 const HOME_WIN = 'HOME_WIN';
@@ -411,78 +409,105 @@ export const buildRecapFacts = (
   };
 };
 
+// A markdown chronicle assembled from the raw facts, used when the agent is
+// unavailable. It mirrors the free-form, emoji-and-bullets style the agent is
+// asked to produce so the feed stays consistent.
 export const buildFallbackCopy = (facts: RecapFacts): RecapCopy => {
+  const lines: string[] = [];
+
+  const moodEmoji =
+    facts.outsiderWins.length > 0 ? '🤯' : facts.matches.length > 0 ? '⚽' : '😴';
+  const title =
+    facts.matches.length > 0
+      ? `${facts.matches.length} match${facts.matches.length > 1 ? 's' : ''} hier, et ça a bougé !`
+      : 'Journée blanche au programme';
+  lines.push(`## ${moodEmoji} ${title}`);
+
+  if (facts.matches.length > 0) {
+    lines.push('');
+    lines.push('### ⚡ Les résultats');
+    for (const win of facts.outsiderWins) {
+      lines.push(
+        `- 🤯 **${win.label}** (${win.score}) : ${win.winner} fait sauter la banque, cote à ${win.cote} !`,
+      );
+    }
+    const outsiderLabels = new Set(facts.outsiderWins.map((win) => win.label));
+    for (const m of facts.matches.filter((match) => !outsiderLabels.has(match.label))) {
+      lines.push(`- ⚽ **${m.label}** (${m.score}) : ${m.winner} l'emporte.`);
+    }
+  } else {
+    lines.push('');
+    lines.push('Pas un seul match hier, repos forcé pour les flambeurs. 🛋️');
+  }
+
   const climber = facts.rankingMoves.find((move) => move.delta > 0);
   const faller = facts.rankingMoves.find((move) => move.delta < 0);
-
-  const rankingMoves =
-    facts.rankingMoves.length === 0
-      ? 'Classement figé : tout le monde campe sur ses positions. 😴'
-      : [
-          climber
-            ? `${climber.name} grimpe de ${climber.delta} place(s) jusqu'au #${climber.to}.`
-            : null,
-          faller
-            ? `${faller.name} dévisse à la #${faller.to} (${faller.delta}).`
-            : null,
-        ]
-          .filter(Boolean)
-          .join(' ');
-
-  const notableResults =
-    facts.outsiderWins.length > 0
-      ? facts.outsiderWins
-          .map(
-            (win) =>
-              `${win.label} (${win.score}) : ${win.winner} fait sauter la banque, cote à ${win.cote} ! 🤯`,
-          )
-          .join(' ')
-      : facts.matches.length > 0
-        ? facts.matches
-            .map((m) => `${m.label} (${m.score}) : ${m.winner} l'emporte.`)
-            .join(' ')
-        : 'Pas un seul match hier, repos pour tout le monde. 🛋️';
-
-  const funFactParts: string[] = [];
-  if (facts.topBettorOfDay) {
-    funFactParts.push(
-      `${facts.topBettorOfDay.name} rafle ${facts.topBettorOfDay.puntos} puntos sur la journée. 🤑`,
-    );
+  if (climber || faller) {
+    lines.push('');
+    lines.push('### 📊 Au classement');
+    if (climber) {
+      lines.push(
+        `- 📈 **${climber.name}** grimpe de ${climber.delta} place(s) jusqu'au #${climber.to}.`,
+      );
+    }
+    if (faller) {
+      lines.push(`- 📉 **${faller.name}** dévisse à la #${faller.to} (${faller.delta}).`);
+    }
   }
+
   const luckiest = [...facts.puntEvStandings].sort((a, b) => b.luck - a.luck)[0];
   const unluckiest = [...facts.puntEvStandings].sort((a, b) => a.luck - b.luck)[0];
+  const statLines: string[] = [];
+  if (facts.topBettorOfDay) {
+    statLines.push(
+      `- 🤑 **${facts.topBettorOfDay.name}** rafle ${facts.topBettorOfDay.puntos} puntos sur la journée.`,
+    );
+  }
   if (luckiest && luckiest.luck > 0) {
-    funFactParts.push(
-      `Côté chatte, ${luckiest.name} affiche ${luckiest.actual} puntos pour ${luckiest.expected} espérés (+${luckiest.luck}). 🍀`,
+    statLines.push(
+      `- 🍀 Côté chatte, **${luckiest.name}** affiche ${luckiest.actual} puntos pour ${luckiest.expected} espérés (+${luckiest.luck}).`,
     );
   }
   if (unluckiest && unluckiest.luck < 0) {
-    funFactParts.push(
-      `Le poissard du moment c'est ${unluckiest.name} : ${unluckiest.actual} puntos alors qu'il en visait ${unluckiest.expected} (${unluckiest.luck}). 🪦`,
+    statLines.push(
+      `- 🪦 Le poissard du moment, **${unluckiest.name}** : ${unluckiest.actual} puntos alors qu'il en visait ${unluckiest.expected} (${unluckiest.luck}).`,
     );
   }
   if (facts.currentWinStreak) {
-    funFactParts.push(
-      `${facts.currentWinStreak.name} est en feu avec ${facts.currentWinStreak.length} paris gagnés d'affilée. 🔥`,
+    statLines.push(
+      `- 🔥 **${facts.currentWinStreak.name}** est en feu avec ${facts.currentWinStreak.length} paris gagnés d'affilée.`,
     );
   }
   if (facts.currentLossStreak) {
-    funFactParts.push(
-      `À l'opposé, ${facts.currentLossStreak.name} enchaîne ${facts.currentLossStreak.length} défaites de suite. 💀`,
+    statLines.push(
+      `- 💀 À l'opposé, **${facts.currentLossStreak.name}** enchaîne ${facts.currentLossStreak.length} défaites de suite.`,
+    );
+  }
+  if (statLines.length > 0) {
+    lines.push('');
+    lines.push('### 🎲 Le saviez-vous');
+    lines.push(...statLines);
+  }
+
+  const topWinnerBet = facts.winnerBets[0];
+  if (topWinnerBet && topWinnerBet.backers.length > 0) {
+    lines.push('');
+    lines.push('### 🏆 Côté titre');
+    const chance =
+      topWinnerBet.victoryChance !== null ? ` (${topWinnerBet.victoryChance}%)` : '';
+    const pot =
+      topWinnerBet.puntosIfVictory !== null
+        ? `, jackpot de ${topWinnerBet.puntosIfVictory} puntos à la clé`
+        : '';
+    lines.push(
+      `- 🤞 **${topWinnerBet.backers.join(', ')}** ont misé sur **${topWinnerBet.team}**${chance} pour le sacre final${pot}.`,
     );
   }
 
-  return {
-    headline:
-      facts.matches.length > 0
-        ? `${facts.matches.length} match(s) hier, et ça a bougé ! ⚽`
-        : 'Journée blanche au programme 😴',
-    rankingMoves,
-    notableResults,
-    funFact:
-      funFactParts.length > 0
-        ? funFactParts.join(' ')
-        : 'Aucune stat croustillante aujourd\'hui, les parieurs se tiennent à carreau.',
-    mood: facts.outsiderWins.length > 0 ? '🤯' : facts.matches.length > 0 ? '⚽' : '😴',
-  };
+  if (lines.length === 1) {
+    lines.push('');
+    lines.push('Rien de croustillant aujourd\'hui, les parieurs se tiennent à carreau. 😇');
+  }
+
+  return { article: lines.join('\n') };
 };
