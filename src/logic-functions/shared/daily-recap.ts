@@ -56,23 +56,6 @@ export const utcDayStart = (ms: number): number => {
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 };
 
-export const pastRecapDayStarts = (
-  matches: RecapMatchRecord[],
-  todayStart: number,
-): number[] => {
-  const days = new Set<number>();
-  for (const match of matches) {
-    if (!match.result || !match.endDate) {
-      continue;
-    }
-    const day = utcDayStart(timeOf(match.endDate));
-    if (day < todayStart) {
-      days.add(day);
-    }
-  }
-  return [...days].sort((a, b) => a - b);
-};
-
 const winnerLabel = (match: RecapMatchRecord): string => {
   if (match.result === HOME_WIN) return match.home ?? 'Domicile';
   if (match.result === AWAY_WIN) return match.away ?? 'Extérieur';

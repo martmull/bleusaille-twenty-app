@@ -6,7 +6,6 @@ import { createCoreApiClient, fetchAllRecords } from 'src/logic-functions/shared
 import {
   buildFallbackCopy,
   buildRecapFacts,
-  pastRecapDayStarts,
   RecapBetRecord,
   RecapCopy,
   RecapMatchRecord,
@@ -16,6 +15,15 @@ import {
 import { DAILY_RECAP_WRITER_AGENT_UNIVERSAL_IDENTIFIER } from 'src/agents/daily-recap-writer';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MAX_BACKFILL_DAYS = 365;
+
+const parseBackfillDays = (raw: string | undefined): number => {
+  const parsed = Number.parseInt(raw ?? '', 10);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 1;
+  }
+  return Math.min(parsed, MAX_BACKFILL_DAYS);
+};
 
 type DailyRecapRecord = { id: string; recapDate: string | null };
 
@@ -96,7 +104,7 @@ const generateRecapForDay = async (
 
 const handler = async (event?: RoutePayload) => {
   const client = createCoreApiClient();
-  const backfill = event?.queryStringParameters?.backfill === 'true';
+  const backfillDays = parseBackfillDays(event?.queryStringParameters?.backfill);
 
   const [matches, bets, people, existingRecaps] = await Promise.all([
     fetchAllRecords<RecapMatchRecord>(client, 'matches', {
@@ -127,9 +135,11 @@ const handler = async (event?: RoutePayload) => {
   ]);
 
   const todayStart = utcDayStart(Date.now());
-  const dayStarts = backfill
-    ? pastRecapDayStarts(matches, todayStart)
-    : [todayStart - MS_PER_DAY];
+  const yesterdayStart = todayStart - MS_PER_DAY;
+  const dayStarts = Array.from(
+    { length: backfillDays },
+    (_, index) => yesterdayStart - index * MS_PER_DAY,
+  );
 
   const recaps: DayResult[] = [];
   for (const dayStart of dayStarts) {
@@ -147,7 +157,7 @@ const handler = async (event?: RoutePayload) => {
   }
 
   return {
-    backfill,
+    backfillDays,
     daysConsidered: dayStarts.length,
     processed: recaps.length,
     recaps,
@@ -158,7 +168,7 @@ export default defineLogicFunction({
   universalIdentifier: 'f49c8fc0-5610-4dab-8f66-7005a2d21af6',
   name: 'daily-recap',
   description:
-    'Builds a funny recap of the previous day (ranking moves, notable results, bettor fun facts) via an agent and stores it as a Daily Recap record. Runs every morning on a cron, can be triggered over HTTP, and accepts ?backfill=true to regenerate the whole history.',
+    'Builds a funny recap of the previous day (ranking moves, notable results, bettor fun facts) via an agent and stores it as a Daily Recap record. Runs every morning on a cron, can be triggered over HTTP, and accepts ?backfill=N to regenerate the last N days.',
   timeoutSeconds: 300,
   handler,
   cronTriggerSettings: {
