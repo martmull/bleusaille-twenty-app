@@ -78,13 +78,20 @@ const firstNameOf = (
 const longestRun = (
   bets: RecapBetRecord[],
   wanted: boolean,
+  cutoff: number,
 ): { name: string; length: number } | null => {
   const byPerson = new Map<string, { name: string; bets: RecapBetRecord[] }>();
 
   for (const bet of bets) {
     const personId = bet.person?.id;
     const name = firstNameOf(bet.person);
-    if (!personId || !name || bet.won === null || !bet.match?.endDate) {
+    if (
+      !personId ||
+      !name ||
+      bet.won === null ||
+      !bet.match?.endDate ||
+      timeOf(bet.match.endDate) >= cutoff
+    ) {
       continue;
     }
     const entry = byPerson.get(personId) ?? { name, bets: [] };
@@ -235,8 +242,8 @@ export const buildRecapFacts = (
     rankingMoves,
     topBettorOfDay,
     flopBettorOfDay,
-    longestWinStreak: longestRun(bets, true),
-    longestLossStreak: longestRun(bets, false),
+    longestWinStreak: longestRun(bets, true, dayEnd),
+    longestLossStreak: longestRun(bets, false, dayEnd),
   };
 };
 

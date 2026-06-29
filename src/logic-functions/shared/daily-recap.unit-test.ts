@@ -123,6 +123,36 @@ describe('buildRecapFacts', () => {
     expect(facts.longestWinStreak).toEqual({ name: 'Alice', length: 3 });
     expect(facts.longestLossStreak).toEqual({ name: 'Bob', length: 2 });
   });
+
+  it('only counts streaks settled up to the recapped day (backfill snapshot)', () => {
+    const dated = (day: number, result: string) => ({
+      id: `m${day}`,
+      endDate: `2026-06-${String(day).padStart(2, '0')}T20:00:00Z`,
+      result,
+    });
+
+    const allBets = [
+      bet({ won: true, match: dated(10, 'HOME_WIN') }),
+      bet({ won: true, match: dated(11, 'HOME_WIN') }),
+      bet({ won: true, match: dated(12, 'HOME_WIN') }),
+    ];
+
+    const onJune11 = buildRecapFacts(
+      [],
+      allBets,
+      people,
+      Date.parse('2026-06-11T00:00:00Z'),
+    );
+    const onJune12 = buildRecapFacts(
+      [],
+      allBets,
+      people,
+      Date.parse('2026-06-12T00:00:00Z'),
+    );
+
+    expect(onJune11.longestWinStreak).toEqual({ name: 'Alice', length: 2 });
+    expect(onJune12.longestWinStreak).toEqual({ name: 'Alice', length: 3 });
+  });
 });
 
 describe('buildFallbackCopy', () => {
