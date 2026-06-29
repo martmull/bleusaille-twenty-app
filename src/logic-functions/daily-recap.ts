@@ -121,12 +121,16 @@ const handler = async (event?: RoutePayload) => {
     fetchAllRecords<RecapBetRecord>(client, 'bets', {
       won: true,
       puntos: true,
+      puntevs: true,
       person: { id: true, name: { firstName: true } },
       match: { id: true, endDate: true, result: true },
     }),
     fetchAllRecords<RecapPersonRecord>(client, 'people', {
       id: true,
       name: { firstName: true },
+      wcWinnerBet: true,
+      victoryChance: true,
+      winnerBetPuntosEv: true,
     }),
     fetchAllRecords<DailyRecapRecord>(client, 'dailyRecaps', {
       id: true,

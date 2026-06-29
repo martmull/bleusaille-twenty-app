@@ -1,4 +1,5 @@
 import { computeRanks, RankTotals } from 'src/logic-functions/shared/leaderboard';
+import { computeWinnerBetPot } from 'src/logic-functions/shared/winner-bet-puntos-ev';
 
 export type RecapMatchRecord = {
   id: string;
@@ -15,6 +16,7 @@ export type RecapMatchRecord = {
 export type RecapBetRecord = {
   won: boolean | null;
   puntos: number | null;
+  puntevs?: number | null;
   person: { id: string | null; name: { firstName: string | null } | null } | null;
   match: { id: string | null; endDate: string | null; result: string | null } | null;
 };
@@ -22,6 +24,9 @@ export type RecapBetRecord = {
 export type RecapPersonRecord = {
   id: string;
   name: { firstName: string | null } | null;
+  wcWinnerBet?: string | null;
+  victoryChance?: number | null;
+  winnerBetPuntosEv?: number | null;
 };
 
 export type RecapFacts = {
@@ -34,7 +39,37 @@ export type RecapFacts = {
   currentWinStreak: { name: string; length: number } | null;
   currentLossStreak: { name: string; length: number } | null;
   standings: Array<{ name: string; rank: number; total: number; delta: number }>;
-  dayBoard: Array<{ name: string; won: number; lost: number; puntos: number }>;
+  dayBoard: Array<{
+    name: string;
+    won: number;
+    lost: number;
+    puntos: number;
+    expected: number;
+    luck: number;
+  }>;
+  // Season-long puntEV ranking: how many puntos each bettor was "supposed" to
+  // have banked by now given the odds and how many rivals shared each bet,
+  // versus what they actually have. luck = actual - expected (positif = veinard,
+  // négatif = poissard), luckRankDelta = puntEV rank - real rank (positif = il
+  // surclasse son rang d'espérance).
+  puntEvStandings: Array<{
+    name: string;
+    realRank: number;
+    evRank: number;
+    expected: number;
+    actual: number;
+    luck: number;
+    luckRankDelta: number;
+  }>;
+  // Current World Cup winner bets: who put their final-trophy hope on which team,
+  // the bookmaker-implied chance it lifts the cup, and the puntos jackpot each
+  // backer would pocket if it does (shared between everyone who picked it).
+  winnerBets: Array<{
+    team: string;
+    victoryChance: number | null;
+    puntosIfVictory: number | null;
+    backers: string[];
+  }>;
 };
 
 export type RecapCopy = {
@@ -71,7 +106,9 @@ const winningCote = (match: RecapMatchRecord): number | null => {
   return null;
 };
 
-const OUTSIDER_MIN_COTE = 2.2;
+// Lowered so more results clear the "fait marquant" bar: a modest favourite
+// that was still the underdog of its match now counts as notable.
+const OUTSIDER_MIN_COTE = 1.8;
 const MIN_STREAK = 2;
 
 // An outsider win is a team (not a draw) that was the least-favoured outcome:
@@ -230,7 +267,7 @@ export const buildRecapFacts = (
 
   const dayByPerson = new Map<
     string,
-    { name: string; won: number; lost: number; puntos: number }
+    { name: string; won: number; lost: number; puntos: number; expected: number }
   >();
   for (const bet of yesterdayBets) {
     const name = firstNameOf(bet.person);
@@ -238,7 +275,9 @@ export const buildRecapFacts = (
     if (!name || !personId || bet.won === null) {
       continue;
     }
-    const entry = dayByPerson.get(personId) ?? { name, won: 0, lost: 0, puntos: 0 };
+    const entry =
+      dayByPerson.get(personId) ?? { name, won: 0, lost: 0, puntos: 0, expected: 0 };
+    entry.expected += bet.puntevs ?? 0;
     if (bet.won === true) {
       entry.won += 1;
       entry.puntos += bet.puntos ?? 0;
@@ -248,9 +287,13 @@ export const buildRecapFacts = (
     dayByPerson.set(personId, entry);
   }
 
-  const dayBoard = [...dayByPerson.values()].sort(
-    (a, b) => b.puntos - a.puntos || a.name.localeCompare(b.name),
-  );
+  const dayBoard = [...dayByPerson.values()]
+    .map((entry) => ({
+      ...entry,
+      expected: Math.round(entry.expected),
+      luck: Math.round(entry.puntos - entry.expected),
+    }))
+    .sort((a, b) => b.puntos - a.puntos || a.name.localeCompare(b.name));
 
   const topBettorOfDay =
     dayBoard
@@ -263,6 +306,95 @@ export const buildRecapFacts = (
       .sort((a, b) => b.lost - a.lost || a.name.localeCompare(b.name))
       .map((entry) => ({ name: entry.name, lost: entry.lost }))[0] ?? null;
 
+  // Expected puntos banked by the end of the day, from each settled bet's puntEV
+  // (win probability * pot / co-bettors). Comparing this to the real total
+  // surfaces who is riding their luck and who is being robbed by the football
+  // gods.
+  const expectedTotals = new Map<string, number>();
+  for (const bet of bets) {
+    const personId = bet.person?.id;
+    if (
+      !personId ||
+      bet.puntevs === null ||
+      bet.puntevs === undefined ||
+      !bet.match?.result ||
+      timeOf(bet.match.endDate) >= dayEnd
+    ) {
+      continue;
+    }
+    expectedTotals.set(personId, (expectedTotals.get(personId) ?? 0) + bet.puntevs);
+  }
+
+  const evRankById = computeRanks(
+    new Map(
+      [...nameById].map(([id, firstName]) => [
+        id,
+        { firstName, total: expectedTotals.get(id) ?? 0 },
+      ]),
+    ),
+  );
+
+  const puntEvStandings = [...nameById]
+    .map(([id, name]) => {
+      const realRank = afterRanks.get(id) ?? 0;
+      const evRank = evRankById.get(id) ?? 0;
+      const expected = Math.round(expectedTotals.get(id) ?? 0);
+      const actual = Math.round(afterTotals.get(id)?.total ?? 0);
+      return {
+        name,
+        realRank,
+        evRank,
+        expected,
+        actual,
+        luck: actual - expected,
+        luckRankDelta: evRank - realRank,
+      };
+    })
+    .filter((entry) => entry.realRank > 0 && entry.evRank > 0)
+    .sort((a, b) => a.evRank - b.evRank);
+
+  const winnerBackersByTeam = new Map<string, number>();
+  for (const person of people) {
+    const team = person.wcWinnerBet?.trim();
+    if (team) {
+      const key = team.toLowerCase();
+      winnerBackersByTeam.set(key, (winnerBackersByTeam.get(key) ?? 0) + 1);
+    }
+  }
+
+  const winnerGroups = new Map<
+    string,
+    { team: string; victoryChance: number | null; backers: string[] }
+  >();
+  for (const person of people) {
+    const team = person.wcWinnerBet?.trim();
+    const name = person.name?.firstName;
+    if (!team || !name) {
+      continue;
+    }
+    const group = winnerGroups.get(team) ?? {
+      team,
+      victoryChance: person.victoryChance ?? null,
+      backers: [],
+    };
+    group.backers.push(name);
+    winnerGroups.set(team, group);
+  }
+
+  const winnerBets = [...winnerGroups.values()]
+    .map((group) => {
+      const pot = computeWinnerBetPot({
+        predictorsForTeam: winnerBackersByTeam.get(group.team.toLowerCase()) ?? 0,
+      });
+      return {
+        team: group.team,
+        victoryChance: group.victoryChance,
+        puntosIfVictory: pot === null ? null : Math.round(pot),
+        backers: group.backers.sort((a, b) => a.localeCompare(b)),
+      };
+    })
+    .sort((a, b) => (b.victoryChance ?? 0) - (a.victoryChance ?? 0));
+
   return {
     date: new Date(dayStart).toISOString(),
     matches: formattedMatches,
@@ -274,6 +406,8 @@ export const buildRecapFacts = (
     currentLossStreak: currentStreak(bets, false, dayEnd),
     standings,
     dayBoard,
+    puntEvStandings,
+    winnerBets,
   };
 };
 
@@ -300,17 +434,31 @@ export const buildFallbackCopy = (facts: RecapFacts): RecapCopy => {
       ? facts.outsiderWins
           .map(
             (win) =>
-              `${win.label} (${win.score}) : ${win.winner} crée la surprise, cote à ${win.cote} ! 🤯`,
+              `${win.label} (${win.score}) : ${win.winner} fait sauter la banque, cote à ${win.cote} ! 🤯`,
           )
           .join(' ')
       : facts.matches.length > 0
-        ? `${facts.matches.length} match(s) joué(s), rien de bien fou côté surprises.`
+        ? facts.matches
+            .map((m) => `${m.label} (${m.score}) : ${m.winner} l'emporte.`)
+            .join(' ')
         : 'Pas un seul match hier, repos pour tout le monde. 🛋️';
 
   const funFactParts: string[] = [];
   if (facts.topBettorOfDay) {
     funFactParts.push(
       `${facts.topBettorOfDay.name} rafle ${facts.topBettorOfDay.puntos} puntos sur la journée. 🤑`,
+    );
+  }
+  const luckiest = [...facts.puntEvStandings].sort((a, b) => b.luck - a.luck)[0];
+  const unluckiest = [...facts.puntEvStandings].sort((a, b) => a.luck - b.luck)[0];
+  if (luckiest && luckiest.luck > 0) {
+    funFactParts.push(
+      `Côté chatte, ${luckiest.name} affiche ${luckiest.actual} puntos pour ${luckiest.expected} espérés (+${luckiest.luck}). 🍀`,
+    );
+  }
+  if (unluckiest && unluckiest.luck < 0) {
+    funFactParts.push(
+      `Le poissard du moment c'est ${unluckiest.name} : ${unluckiest.actual} puntos alors qu'il en visait ${unluckiest.expected} (${unluckiest.luck}). 🪦`,
     );
   }
   if (facts.currentWinStreak) {
