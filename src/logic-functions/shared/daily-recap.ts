@@ -1,4 +1,5 @@
 import { computeRanks, RankTotals } from 'src/logic-functions/shared/leaderboard';
+import { canonicalTeamName } from 'src/logic-functions/shared/team-aliases';
 
 export type RecapMatchRecord = {
   id: string;
@@ -6,6 +7,7 @@ export type RecapMatchRecord = {
   away: string | null;
   score: string | null;
   result: string | null;
+  stage: string | null;
   endDate: string | null;
   prematchHomeCote: number | null;
   prematchDrawCote: number | null;
@@ -15,6 +17,7 @@ export type RecapMatchRecord = {
 export type RecapBetRecord = {
   won: boolean | null;
   puntos: number | null;
+  puntevs: number | null;
   person: { id: string | null; name: { firstName: string | null } | null } | null;
   match: { id: string | null; endDate: string | null; result: string | null } | null;
 };
@@ -22,11 +25,19 @@ export type RecapBetRecord = {
 export type RecapPersonRecord = {
   id: string;
   name: { firstName: string | null } | null;
+  wcWinnerBet: string | null;
+  victoryChance: number | null;
 };
 
 export type RecapFacts = {
   date: string;
-  matches: Array<{ label: string; score: string; winner: string }>;
+  matches: Array<{
+    label: string;
+    score: string;
+    winner: string;
+    winnerCote: number | null;
+    stage: string | null;
+  }>;
   outsiderWins: Array<{ label: string; score: string; winner: string; cote: number }>;
   rankingMoves: Array<{ name: string; from: number; to: number; delta: number }>;
   topBettorOfDay: { name: string; puntos: number } | null;
@@ -35,10 +46,28 @@ export type RecapFacts = {
   currentLossStreak: { name: string; length: number } | null;
   standings: Array<{ name: string; rank: number; total: number; delta: number }>;
   dayBoard: Array<{ name: string; won: number; lost: number; puntos: number }>;
+  puntevsStandings: Array<{
+    name: string;
+    puntevsRank: number;
+    puntevs: number;
+    puntos: number;
+    puntosRank: number;
+    rankGap: number;
+  }>;
+  winnerBets: Array<{ team: string; backers: string[]; victoryChance: number | null }>;
+  winnerTeamNews: Array<{
+    team: string;
+    label: string;
+    score: string;
+    outcome: 'won' | 'lost' | 'draw';
+    eliminated: boolean;
+    backers: string[];
+  }>;
 };
 
 export type RecapCopy = {
   headline: string;
+  article: string;
   rankingMoves: string;
   notableResults: string;
   funFact: string;
@@ -71,8 +100,9 @@ const winningCote = (match: RecapMatchRecord): number | null => {
   return null;
 };
 
-const OUTSIDER_MIN_COTE = 2.2;
+const OUTSIDER_MIN_COTE = 2.0;
 const MIN_STREAK = 2;
+const GROUP_STAGE = 'GROUP_STAGE';
 
 // An outsider win is a team (not a draw) that was the least-favoured outcome:
 // its prematch cote is the highest of the three and clears the floor.
@@ -158,6 +188,8 @@ export const buildRecapFacts = (
     label: `${match.home ?? '?'} - ${match.away ?? '?'}`,
     score: match.score ?? '',
     winner: winnerLabel(match),
+    winnerCote: winningCote(match),
+    stage: match.stage,
   }));
 
   const outsiderWins = yesterdayMatches
@@ -263,6 +295,95 @@ export const buildRecapFacts = (
       .sort((a, b) => b.lost - a.lost || a.name.localeCompare(b.name))
       .map((entry) => ({ name: entry.name, lost: entry.lost }))[0] ?? null;
 
+  const puntevsByPerson = new Map<string, number>();
+  for (const bet of bets) {
+    const personId = bet.person?.id;
+    if (
+      !personId ||
+      bet.puntevs === null ||
+      !bet.match?.result ||
+      timeOf(bet.match.endDate) >= dayEnd
+    ) {
+      continue;
+    }
+    puntevsByPerson.set(personId, (puntevsByPerson.get(personId) ?? 0) + bet.puntevs);
+  }
+
+  const puntosRankByName = new Map(standings.map((entry) => [entry.name, entry.rank]));
+
+  const puntevsStandings = [...nameById.entries()]
+    .map(([personId, name]) => {
+      const puntevs = Math.round((puntevsByPerson.get(personId) ?? 0) * 100) / 100;
+      const puntos = afterTotals.get(personId)?.total ?? 0;
+      return { name, puntevs, puntos };
+    })
+    .sort((a, b) => b.puntevs - a.puntevs || a.name.localeCompare(b.name))
+    .map((entry, index) => {
+      const puntevsRank = index + 1;
+      const puntosRank = puntosRankByName.get(entry.name) ?? puntevsRank;
+      return { ...entry, puntevsRank, puntosRank, rankGap: puntevsRank - puntosRank };
+    });
+
+  const winnerBetByTeam = new Map<
+    string,
+    { team: string; backers: string[]; victoryChance: number | null }
+  >();
+  for (const person of people) {
+    const team = person.wcWinnerBet?.trim();
+    const name = person.name?.firstName;
+    if (!team || !name) {
+      continue;
+    }
+    const key = canonicalTeamName(team);
+    const entry = winnerBetByTeam.get(key) ?? {
+      team,
+      backers: [],
+      victoryChance: person.victoryChance,
+    };
+    entry.backers.push(name);
+    winnerBetByTeam.set(key, entry);
+  }
+
+  const winnerBets = [...winnerBetByTeam.values()].sort(
+    (a, b) => b.backers.length - a.backers.length || a.team.localeCompare(b.team),
+  );
+
+  const winnerTeamNews = yesterdayMatches
+    .flatMap((match) => {
+      const sides: Array<{ team: string; outcome: 'won' | 'lost' | 'draw' }> = [];
+      if (match.home) {
+        sides.push({
+          team: match.home,
+          outcome:
+            match.result === HOME_WIN ? 'won' : match.result === AWAY_WIN ? 'lost' : 'draw',
+        });
+      }
+      if (match.away) {
+        sides.push({
+          team: match.away,
+          outcome:
+            match.result === AWAY_WIN ? 'won' : match.result === HOME_WIN ? 'lost' : 'draw',
+        });
+      }
+      return sides
+        .map((side) => {
+          const bet = winnerBetByTeam.get(canonicalTeamName(side.team));
+          if (!bet) {
+            return null;
+          }
+          const eliminated = side.outcome === 'lost' && match.stage !== GROUP_STAGE;
+          return {
+            team: side.team,
+            label: `${match.home ?? '?'} - ${match.away ?? '?'}`,
+            score: match.score ?? '',
+            outcome: side.outcome,
+            eliminated,
+            backers: bet.backers,
+          };
+        })
+        .filter((news): news is NonNullable<typeof news> => news !== null);
+    });
+
   return {
     date: new Date(dayStart).toISOString(),
     matches: formattedMatches,
@@ -274,6 +395,9 @@ export const buildRecapFacts = (
     currentLossStreak: currentStreak(bets, false, dayEnd),
     standings,
     dayBoard,
+    puntevsStandings,
+    winnerBets,
+    winnerTeamNews,
   };
 };
 
@@ -324,17 +448,49 @@ export const buildFallbackCopy = (facts: RecapFacts): RecapCopy => {
     );
   }
 
+  const funFact =
+    funFactParts.length > 0
+      ? funFactParts.join(' ')
+      : 'Aucune stat croustillante aujourd\'hui, les parieurs se tiennent à carreau.';
+
+  const leader = facts.standings[0];
+  const luckiest = [...facts.puntevsStandings].sort((a, b) => b.rankGap - a.rankGap)[0];
+  const cursed = [...facts.puntevsStandings].sort((a, b) => a.rankGap - b.rankGap)[0];
+  const eliminations = facts.winnerTeamNews.filter((news) => news.eliminated);
+  const topPick = facts.winnerBets[0];
+
+  const articleParts = [
+    facts.matches.length > 0
+      ? `${facts.matches.length} match(s) au menu hier. ${notableResults}`
+      : 'Pas le moindre ballon hier, journée canapé pour tout le monde. 🛋️',
+    rankingMoves,
+    leader ? `En tête, ${leader.name} caracole avec ${leader.total} puntos. 👑` : null,
+    luckiest && cursed && luckiest.rankGap > 0 && luckiest.name !== cursed.name
+      ? `Côté chatte : ${luckiest.name} est ${luckiest.puntevsRank}e aux puntevs (espérés) mais ${luckiest.puntosRank}e au réel — gros coup de bol. ${cursed.rankGap < 0 ? `À l'inverse, ${cursed.name} sous-performe (${cursed.puntevsRank}e espéré, ${cursed.puntosRank}e réel), la scoumoune. 🐈‍⬛` : '🍀'}`
+      : null,
+    topPick
+      ? `Vainqueur final : la bande à ${topPick.team} reste la plus fournie (${topPick.backers.length} parieurs${topPick.victoryChance ? `, ${topPick.victoryChance}% de chances` : ''}).`
+      : null,
+    eliminations.length > 0
+      ? eliminations
+          .map(
+            (news) =>
+              `Coup dur : ${news.team} est éliminé, gros coup au moral pour ${news.backers.join(', ')}. 💔`,
+          )
+          .join(' ')
+      : null,
+    funFact,
+  ].filter(Boolean);
+
   return {
     headline:
       facts.matches.length > 0
         ? `${facts.matches.length} match(s) hier, et ça a bougé ! ⚽`
         : 'Journée blanche au programme 😴',
+    article: articleParts.join(' '),
     rankingMoves,
     notableResults,
-    funFact:
-      funFactParts.length > 0
-        ? funFactParts.join(' ')
-        : 'Aucune stat croustillante aujourd\'hui, les parieurs se tiennent à carreau.',
+    funFact,
     mood: facts.outsiderWins.length > 0 ? '🤯' : facts.matches.length > 0 ? '⚽' : '😴',
   };
 };

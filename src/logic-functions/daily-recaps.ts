@@ -5,6 +5,7 @@ import { createCoreApiClient, fetchAllRecords } from 'src/logic-functions/shared
 type DailyRecapRecord = {
   recapDate: string | null;
   headline: string | null;
+  article: string | null;
   rankingMoves: string | null;
   notableResults: string | null;
   funFact: string | null;
@@ -14,6 +15,7 @@ type DailyRecapRecord = {
 type Recap = {
   recapDate: string | null;
   headline: string;
+  article: string;
   rankingMoves: string;
   notableResults: string;
   funFact: string;
@@ -26,6 +28,7 @@ const handler = async (): Promise<{ recaps: Recap[] }> => {
   const records = await fetchAllRecords<DailyRecapRecord>(client, 'dailyRecaps', {
     recapDate: true,
     headline: true,
+    article: true,
     rankingMoves: true,
     notableResults: true,
     funFact: true,
@@ -40,6 +43,7 @@ const handler = async (): Promise<{ recaps: Recap[] }> => {
     .map((record) => ({
       recapDate: record.recapDate,
       headline: record.headline ?? '',
+      article: record.article ?? '',
       rankingMoves: record.rankingMoves ?? '',
       notableResults: record.notableResults ?? '',
       funFact: record.funFact ?? '',
