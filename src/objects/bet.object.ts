@@ -91,7 +91,7 @@ export default defineObject({
       name: 'puntevs',
       label: 'Puntevs',
       description:
-        'Expected puntos for this bet: win probability * 170 / number of bettors on this bet',
+        'Expected puntos for this bet: win probability * (170 * stage multiplier) / number of bettors on this bet',
       icon: 'IconChartLine',
       isNullable: true,
       defaultValue: null,
