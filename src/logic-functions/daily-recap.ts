@@ -43,11 +43,8 @@ const dayLabelFormatter = new Intl.DateTimeFormat('fr-FR', {
 const isRecapCopy = (value: unknown): value is RecapCopy =>
   typeof value === 'object' &&
   value !== null &&
-  typeof (value as RecapCopy).headline === 'string' &&
-  typeof (value as RecapCopy).rankingMoves === 'string' &&
-  typeof (value as RecapCopy).notableResults === 'string' &&
-  typeof (value as RecapCopy).funFact === 'string' &&
-  typeof (value as RecapCopy).mood === 'string';
+  typeof (value as RecapCopy).article === 'string' &&
+  (value as RecapCopy).article.trim().length > 0;
 
 const generateRecapForDay = async (
   client: CoreApiClient,
@@ -78,11 +75,7 @@ const generateRecapForDay = async (
   const data = {
     name: `Récap — ${dayLabelFormatter.format(new Date(dayStart))}`,
     recapDate,
-    headline: copy.headline,
-    rankingMoves: copy.rankingMoves,
-    notableResults: copy.notableResults,
-    funFact: copy.funFact,
-    mood: copy.mood,
+    article: copy.article,
   };
 
   const existing = existingRecaps.find(
@@ -121,12 +114,16 @@ const handler = async (event?: RoutePayload) => {
     fetchAllRecords<RecapBetRecord>(client, 'bets', {
       won: true,
       puntos: true,
+      puntevs: true,
       person: { id: true, name: { firstName: true } },
       match: { id: true, endDate: true, result: true },
     }),
     fetchAllRecords<RecapPersonRecord>(client, 'people', {
       id: true,
       name: { firstName: true },
+      wcWinnerBet: true,
+      victoryChance: true,
+      winnerBetPuntosEv: true,
     }),
     fetchAllRecords<DailyRecapRecord>(client, 'dailyRecaps', {
       id: true,

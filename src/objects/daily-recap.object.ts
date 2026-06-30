@@ -7,16 +7,8 @@ export const DAILY_RECAP_NAME_FIELD_UNIVERSAL_IDENTIFIER =
   'cb22afde-9d75-4957-943e-d5328b063d43';
 export const DAILY_RECAP_DATE_FIELD_UNIVERSAL_IDENTIFIER =
   'eddfae52-6d8c-4194-9040-9feea940b504';
-export const DAILY_RECAP_HEADLINE_FIELD_UNIVERSAL_IDENTIFIER =
-  '132ded8b-c428-4d5b-a1f4-d57f7b052835';
-export const DAILY_RECAP_RANKING_MOVES_FIELD_UNIVERSAL_IDENTIFIER =
-  '1ba5cad5-9875-425c-9663-2437c71546dd';
-export const DAILY_RECAP_NOTABLE_RESULTS_FIELD_UNIVERSAL_IDENTIFIER =
-  'b7707c2d-f11c-4f05-ad5e-9e8a1e858eb4';
-export const DAILY_RECAP_FUN_FACT_FIELD_UNIVERSAL_IDENTIFIER =
-  'b7dc1494-a233-4bc3-90c9-1f3ed5974a49';
-export const DAILY_RECAP_MOOD_FIELD_UNIVERSAL_IDENTIFIER =
-  'bdc4806d-358d-4904-81a5-afe2b121ff68';
+export const DAILY_RECAP_ARTICLE_FIELD_UNIVERSAL_IDENTIFIER =
+  '756d3472-7baa-4dc0-9641-d98696148dbb';
 
 export default defineObject({
   universalIdentifier: DAILY_RECAP_OBJECT_UNIVERSAL_IDENTIFIER,
@@ -25,7 +17,7 @@ export default defineObject({
   labelSingular: 'Daily Recap',
   labelPlural: 'Daily Recaps',
   description:
-    'A funny morning recap of the previous day: ranking moves, notable results and a fun fact about bettors.',
+    'A funny free-form morning chronicle of the previous day, written as a rich markdown article.',
   icon: 'IconNews',
   isSearchable: false,
   labelIdentifierFieldMetadataUniversalIdentifier:
@@ -50,44 +42,13 @@ export default defineObject({
       defaultValue: null,
     },
     {
-      universalIdentifier: DAILY_RECAP_HEADLINE_FIELD_UNIVERSAL_IDENTIFIER,
+      universalIdentifier: DAILY_RECAP_ARTICLE_FIELD_UNIVERSAL_IDENTIFIER,
       type: FieldType.TEXT,
-      name: 'headline',
-      label: 'Headline',
-      description: 'Punchy funny headline for the day',
-      icon: 'IconHeadline',
-    },
-    {
-      universalIdentifier: DAILY_RECAP_RANKING_MOVES_FIELD_UNIVERSAL_IDENTIFIER,
-      type: FieldType.TEXT,
-      name: 'rankingMoves',
-      label: 'Ranking Moves',
-      description: 'Story of the major ranking evolutions of the day',
-      icon: 'IconArrowsUpDown',
-    },
-    {
-      universalIdentifier: DAILY_RECAP_NOTABLE_RESULTS_FIELD_UNIVERSAL_IDENTIFIER,
-      type: FieldType.TEXT,
-      name: 'notableResults',
-      label: 'Notable Results',
-      description: 'Notable match results such as an outsider winning',
-      icon: 'IconBallFootball',
-    },
-    {
-      universalIdentifier: DAILY_RECAP_FUN_FACT_FIELD_UNIVERSAL_IDENTIFIER,
-      type: FieldType.TEXT,
-      name: 'funFact',
-      label: 'Fun Fact',
-      description: 'A fun fact about the bettors (streaks, flops, etc.)',
-      icon: 'IconConfetti',
-    },
-    {
-      universalIdentifier: DAILY_RECAP_MOOD_FIELD_UNIVERSAL_IDENTIFIER,
-      type: FieldType.TEXT,
-      name: 'mood',
-      label: 'Mood',
-      description: 'A single emoji capturing the mood of the day',
-      icon: 'IconMoodSmile',
+      name: 'article',
+      label: 'Article',
+      description:
+        'The full free-form chronicle of the day, in markdown (title, paragraphs, bullet points, emojis and stats)',
+      icon: 'IconArticle',
     },
   ],
 });

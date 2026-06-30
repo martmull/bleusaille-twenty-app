@@ -8,11 +8,7 @@ export const DAILY_RECAP_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER =
 
 type Recap = {
   recapDate: string | null;
-  headline: string;
-  rankingMoves: string;
-  notableResults: string;
-  funFact: string;
-  mood: string;
+  article: string;
 };
 
 type RecapsResponse = { recaps: Recap[] };
@@ -75,51 +71,112 @@ const dateFormatter = new Intl.DateTimeFormat('fr-FR', {
 const dateLabelOf = (recapDate: string | null): string =>
   recapDate ? dateFormatter.format(new Date(recapDate)) : 'Jour inconnu';
 
-const Section = ({
-  icon,
-  label,
-  text,
-  index,
-}: {
-  icon: string;
-  label: string;
-  text: string;
-  index: number;
-}) => {
+// Renders inline markdown: **bold** and `code`-free plain text. Emojis are
+// just unicode characters, so they pass through untouched.
+const renderInline = (text: string, theme: Theme): React.ReactNode[] =>
+  text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+      return (
+        <strong key={index} style={{ fontWeight: 700, color: theme.heading }}>
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <span key={index}>{part}</span>;
+  });
+
+// A tiny dependency-free markdown renderer tuned for the gazette article:
+// ## / ### headings, "- " bullet lists, **bold**, and plain paragraphs.
+const Markdown = ({ source }: { source: string }) => {
   const theme = getTheme(useColorScheme());
+  const lines = source.replace(/\r\n/g, '\n').split('\n');
 
-  if (!text) {
-    return null;
-  }
+  const blocks: React.ReactNode[] = [];
+  let bullets: string[] = [];
 
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '2px',
-        animation: `dr-rise 0.4s ${0.08 * index}s both`,
-      }}
-    >
-      <span
+  const flushBullets = () => {
+    if (bullets.length === 0) {
+      return;
+    }
+    const items = bullets;
+    bullets = [];
+    blocks.push(
+      <ul
+        key={`ul-${blocks.length}`}
         style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '5px',
-          fontSize: '10px',
-          fontWeight: 800,
-          letterSpacing: '0.6px',
-          textTransform: 'uppercase',
-          color: theme.sectionLabel,
+          margin: 0,
+          paddingLeft: '18px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px',
         }}
       >
-        <span style={{ fontSize: '12px' }}>{icon}</span>
-        {label}
-      </span>
-      <span style={{ fontSize: '12.5px', lineHeight: 1.45, color: theme.textPrimary }}>
-        {text}
-      </span>
-    </div>
+        {items.map((item, index) => (
+          <li
+            key={index}
+            style={{ fontSize: '12.5px', lineHeight: 1.45, color: theme.textPrimary }}
+          >
+            {renderInline(item, theme)}
+          </li>
+        ))}
+      </ul>,
+    );
+  };
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd();
+    const trimmed = line.trim();
+
+    if (trimmed === '') {
+      flushBullets();
+      continue;
+    }
+
+    const bulletMatch = trimmed.match(/^[-*•]\s+(.*)$/);
+    if (bulletMatch) {
+      bullets.push(bulletMatch[1]);
+      continue;
+    }
+
+    flushBullets();
+
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const isTitle = level <= 2;
+      blocks.push(
+        <div
+          key={`h-${blocks.length}`}
+          style={{
+            fontSize: isTitle ? '15px' : '11px',
+            fontWeight: 800,
+            lineHeight: 1.25,
+            letterSpacing: isTitle ? 0 : '0.5px',
+            textTransform: isTitle ? 'none' : 'uppercase',
+            color: isTitle ? theme.heading : theme.sectionLabel,
+            marginTop: blocks.length === 0 ? 0 : '4px',
+          }}
+        >
+          {renderInline(headingMatch[2], theme)}
+        </div>,
+      );
+      continue;
+    }
+
+    blocks.push(
+      <p
+        key={`p-${blocks.length}`}
+        style={{ margin: 0, fontSize: '12.5px', lineHeight: 1.5, color: theme.textPrimary }}
+      >
+        {renderInline(trimmed, theme)}
+      </p>,
+    );
+  }
+
+  flushBullets();
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>{blocks}</div>
   );
 };
 
@@ -140,49 +197,21 @@ const RecapCard = ({ recap, index }: { recap: Recap; index: number }) => {
         animation: `dr-rise 0.45s ${Math.min(index, 8) * 0.06}s both`,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-        <span
-          style={{
-            flex: '0 0 auto',
-            fontSize: '26px',
-            lineHeight: 1,
-            animation: `dr-pop 0.5s ${Math.min(index, 8) * 0.06 + 0.1}s both`,
-          }}
-        >
-          {recap.mood || '📰'}
-        </span>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
-          <span
-            style={{
-              fontSize: '9.5px',
-              fontWeight: 800,
-              letterSpacing: '0.7px',
-              textTransform: 'uppercase',
-              color: theme.muted,
-            }}
-          >
-            {dateLabelOf(recap.recapDate)}
-          </span>
-          <span
-            style={{
-              fontSize: '14.5px',
-              fontWeight: 800,
-              lineHeight: 1.25,
-              color: theme.heading,
-            }}
-          >
-            {recap.headline}
-          </span>
-        </div>
-      </div>
+      <span
+        style={{
+          fontSize: '9.5px',
+          fontWeight: 800,
+          letterSpacing: '0.7px',
+          textTransform: 'uppercase',
+          color: theme.muted,
+        }}
+      >
+        {dateLabelOf(recap.recapDate)}
+      </span>
 
       <span style={{ height: '1px', width: '100%', background: theme.paperLine }} />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '9px' }}>
-        <Section icon="📊" label="Au classement" text={recap.rankingMoves} index={0} />
-        <Section icon="⚡" label="Résultats du jour" text={recap.notableResults} index={1} />
-        <Section icon="🎲" label="Le saviez-vous" text={recap.funFact} index={2} />
-      </div>
+      <Markdown source={recap.article} />
     </div>
   );
 };
@@ -321,6 +350,6 @@ export default defineFrontComponent({
   universalIdentifier: DAILY_RECAP_FRONT_COMPONENT_UNIVERSAL_IDENTIFIER,
   name: 'Daily Recap',
   description:
-    'A fun newspaper-style feed of the daily recaps: headline, ranking moves, notable results and a bettor fun fact, newest first.',
+    'A fun newspaper-style feed of the daily recaps: each day a free-form markdown chronicle, newest first.',
   component: DailyRecap,
 });

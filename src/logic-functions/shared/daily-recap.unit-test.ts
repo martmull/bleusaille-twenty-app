@@ -163,6 +163,70 @@ describe('buildRecapFacts', () => {
     expect(facts.currentWinStreak).toEqual({ name: 'Bob', length: 2 });
   });
 
+  it('ranks bettors by puntEV and exposes how lucky each one has been', () => {
+    const todayMatch = { id: 'today', endDate: '2026-06-28T20:00:00Z', result: 'HOME_WIN' };
+    const priorMatch = { id: 'prior', endDate: '2026-06-20T20:00:00Z', result: 'HOME_WIN' };
+
+    const facts = buildRecapFacts(
+      [match({ id: 'today' })],
+      [
+        // Alice : grosse chatte — 80 puntos réels pour seulement 10 espérés.
+        bet({
+          person: { id: 'p1', name: { firstName: 'Alice' } },
+          puntos: 80,
+          puntevs: 10,
+          match: todayMatch,
+        }),
+        // Bob : poissard — 10 puntos réels alors qu'il en visait 50.
+        bet({
+          person: { id: 'p2', name: { firstName: 'Bob' } },
+          puntos: 10,
+          puntevs: 50,
+          match: priorMatch,
+        }),
+      ],
+      people,
+      DAY_START,
+    );
+
+    // Sorted by expected (puntEV) rank: Bob expected more, so he leads the EV table.
+    expect(facts.puntEvStandings.map((entry) => entry.name)).toEqual(['Bob', 'Alice']);
+
+    const alice = facts.puntEvStandings.find((entry) => entry.name === 'Alice')!;
+    expect(alice).toMatchObject({
+      realRank: 1,
+      evRank: 2,
+      expected: 10,
+      actual: 80,
+      luck: 70,
+      luckRankDelta: 1,
+    });
+
+    const bob = facts.puntEvStandings.find((entry) => entry.name === 'Bob')!;
+    expect(bob).toMatchObject({ realRank: 2, evRank: 1, luck: -40, luckRankDelta: -1 });
+  });
+
+  it('groups World Cup winner bets with their jackpot and backers', () => {
+    const winnerPeople: RecapPersonRecord[] = [
+      { id: 'p1', name: { firstName: 'Alice' }, wcWinnerBet: 'France', victoryChance: 25 },
+      { id: 'p2', name: { firstName: 'Bob' }, wcWinnerBet: 'France', victoryChance: 25 },
+      { id: 'p3', name: { firstName: 'Chloé' }, wcWinnerBet: 'Brazil', victoryChance: 40 },
+    ];
+
+    const facts = buildRecapFacts([], [], winnerPeople, DAY_START);
+
+    // Sorted by victory chance: Brazil (40%) before France (25%).
+    expect(facts.winnerBets.map((entry) => entry.team)).toEqual(['Brazil', 'France']);
+
+    const brazil = facts.winnerBets.find((entry) => entry.team === 'Brazil')!;
+    // Single backer pockets the whole final pot: 170 * 8 / 1 = 1360.
+    expect(brazil).toMatchObject({ puntosIfVictory: 1360, backers: ['Chloé'] });
+
+    const france = facts.winnerBets.find((entry) => entry.team === 'France')!;
+    // Two backers split the pot: 170 * 8 / 2 = 680 each.
+    expect(france).toMatchObject({ puntosIfVictory: 680, backers: ['Alice', 'Bob'] });
+  });
+
   it('only counts streaks settled up to the recapped day (backfill snapshot)', () => {
     const dated = (day: number, result: string) => ({
       id: `m${day}`,
@@ -195,15 +259,16 @@ describe('buildRecapFacts', () => {
 });
 
 describe('buildFallbackCopy', () => {
-  it('produces a quiet-day copy when nothing happened', () => {
+  it('produces a markdown article with a title on a quiet day', () => {
     const facts = buildRecapFacts([], [], people, DAY_START);
     const copy = buildFallbackCopy(facts);
 
-    expect(copy.mood).toBe('😴');
-    expect(copy.headline).toContain('blanche');
+    // Single free-form markdown field, opening on a ## title.
+    expect(copy.article.startsWith('## ')).toBe(true);
+    expect(copy.article).toContain('blanche');
   });
 
-  it('mentions the outsider in the notable results', () => {
+  it('mentions the outsider in the markdown article', () => {
     const facts = buildRecapFacts(
       [match({ result: 'AWAY_WIN', score: '0-2', prematchAwayCote: 6.4 })],
       [],
@@ -212,7 +277,39 @@ describe('buildFallbackCopy', () => {
     );
     const copy = buildFallbackCopy(facts);
 
-    expect(copy.notableResults).toContain('Brazil');
-    expect(copy.notableResults).toContain('6.4');
+    expect(copy.article).toContain('Brazil');
+    expect(copy.article).toContain('6.4');
+  });
+
+  it('varies the article from one day to the next', () => {
+    const sameFacts = (dayStart: number) =>
+      buildRecapFacts(
+        [match({ id: 'a' }), match({ id: 'b', result: 'AWAY_WIN', score: '0-2', prematchAwayCote: 6.4 })],
+        [bet({ puntos: 30 })],
+        people,
+        dayStart,
+      );
+
+    const dayOne = buildFallbackCopy(sameFacts(DAY_START)).article;
+    const dayTwo = buildFallbackCopy(sameFacts(DAY_START + 24 * 60 * 60 * 1000)).article;
+
+    // Same shape of facts on two different dates must not read identically.
+    expect(dayOne).not.toBe(dayTwo);
+    // ...but regenerating the same day stays stable.
+    expect(buildFallbackCopy(sameFacts(DAY_START)).article).toBe(dayOne);
+  });
+
+  it('surfaces the World Cup winner bet hopes in the article', () => {
+    const facts = buildRecapFacts(
+      [match()],
+      [],
+      [{ id: 'p1', name: { firstName: 'Alice' }, wcWinnerBet: 'France', victoryChance: 30 }],
+      DAY_START,
+    );
+    const copy = buildFallbackCopy(facts);
+
+    expect(copy.article).toContain('France');
+    // 170 * 8 / 1 = 1360 puntos for a lone backer.
+    expect(copy.article).toContain('1360');
   });
 });
