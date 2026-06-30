@@ -2,7 +2,7 @@ import { CoreApiClient } from 'twenty-client-sdk/core';
 
 import { applyGroupedUpdates, fetchAllRecords } from 'src/logic-functions/shared/api';
 import { computeBetPuntevs } from 'src/logic-functions/shared/bet-ev';
-import { computePuntos, PuntosBet } from 'src/logic-functions/shared/compute-puntos';
+import { computePuntos, getStageMultiplier, PuntosBet } from 'src/logic-functions/shared/compute-puntos';
 import { BetValue } from 'src/objects/bet.object';
 
 type BetMatch = {
@@ -29,16 +29,21 @@ export type ComputePuntosResult = {
  * Margin-normalised implied probability of this bet's predicted outcome, derived
  * from the match's stored prematch decimal odds (the last odds seen before
  * kickoff). Returns null when the prematch odds are not available.
+ *
+ * Knockout (non-pool) matches are priced on the two-way draw-no-bet market and
+ * therefore carry no draw cote, so we treat a missing draw as a zero-probability
+ * outcome and let home/away normalise to a valid two-way probability. Requiring
+ * a draw cote here is what previously left every non-pool bet without puntevs.
  */
-const prematchPickProbability = (betValue: string, match: BetMatch): number | null => {
+export const prematchPickProbability = (betValue: string, match: BetMatch): number | null => {
   const { prematchHomeCote, prematchDrawCote, prematchAwayCote } = match;
 
-  if (!prematchHomeCote || !prematchDrawCote || !prematchAwayCote) {
+  if (!prematchHomeCote || !prematchAwayCote) {
     return null;
   }
 
   const homeInverse = 1 / prematchHomeCote;
-  const drawInverse = 1 / prematchDrawCote;
+  const drawInverse = prematchDrawCote ? 1 / prematchDrawCote : 0;
   const awayInverse = 1 / prematchAwayCote;
   const total = homeInverse + drawInverse + awayInverse;
 
@@ -102,6 +107,7 @@ export const computeBetsPuntos = async (client: CoreApiClient): Promise<ComputeP
     const puntevs = computeBetPuntevs({
       winnersForPick,
       pickProbability: prematchPickProbability(bet.betValue, bet.match),
+      stageMultiplier: getStageMultiplier(bet.match.stage),
     });
 
     if (bet.puntos === puntos && bet.puntevs === puntevs) {
