@@ -51,17 +51,24 @@ const MATCH_DURATION_MINUTES: Record<NonNullable<FootballDataMatch['score']['dur
   PENALTY_SHOOTOUT: 165,
 };
 
-const toResult = (match: FootballDataMatch): MatchResult | null => {
+export const toResult = (match: FootballDataMatch): MatchResult | null => {
   if (match.status !== 'FINISHED') {
     return null;
   }
 
-  const { winner } = match.score;
+  const { winner, fullTime } = match.score;
 
   if (winner === 'HOME_TEAM') return MatchResult.HOME_WIN;
   if (winner === 'AWAY_TEAM') return MatchResult.AWAY_WIN;
   if (winner === 'DRAW') return MatchResult.NULL_OR_DRAW;
-  return null;
+
+  if (fullTime.home === null || fullTime.away === null) {
+    return null;
+  }
+
+  if (fullTime.home > fullTime.away) return MatchResult.HOME_WIN;
+  if (fullTime.away > fullTime.home) return MatchResult.AWAY_WIN;
+  return MatchResult.NULL_OR_DRAW;
 };
 
 const toScore = (match: FootballDataMatch): string => {
