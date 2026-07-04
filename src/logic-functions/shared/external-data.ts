@@ -48,3 +48,31 @@ export const fetchExternalData = async (
 
   return data;
 };
+
+export type ExternalDataResult = {
+  data: ExternalData;
+  failed: ExternalApiCall[];
+};
+
+export const fetchExternalDataSettled = async (
+  options: { ignore?: ExternalApiCall[] } = {},
+): Promise<ExternalDataResult> => {
+  const ignore = new Set(options.ignore ?? []);
+  const data: ExternalData = {};
+  const failed: ExternalApiCall[] = [];
+
+  await Promise.all(
+    (Object.keys(FETCHERS) as ExternalApiCall[])
+      .filter((key) => !ignore.has(key))
+      .map(async (key) => {
+        try {
+          Object.assign(data, { [key]: await FETCHERS[key]() });
+        } catch (error) {
+          failed.push(key);
+          console.error(`[external-data] failed to fetch ${key}`, error);
+        }
+      }),
+  );
+
+  return { data, failed };
+};
