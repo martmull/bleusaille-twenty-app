@@ -18,7 +18,12 @@ export type UpdateVictoryChanceResult = {
 export const updateVictoryChance = async (
   client: CoreApiClient,
   winnerChances?: Map<string, number>,
+  options: { refresh?: boolean } = {},
 ): Promise<UpdateVictoryChanceResult> => {
+  if (options.refresh === false && !winnerChances) {
+    return { teamsFromOdds: 0, updated: 0, unmatched: 0 };
+  }
+
   const [chancesByTeam, people] = await Promise.all([
     winnerChances ?? fetchWorldCupWinnerChances(),
     fetchAllRecords<PersonRecord>(client, 'people', {

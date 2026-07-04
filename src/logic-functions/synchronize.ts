@@ -1,4 +1,4 @@
-import { defineLogicFunction } from 'twenty-sdk/define';
+import { defineLogicFunction, RoutePayload } from 'twenty-sdk/define';
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
 import { createCoreApiClient } from 'src/logic-functions/shared/api';
@@ -32,11 +32,23 @@ type PipelineStep = {
   run: () => Promise<unknown>;
 };
 
-export const runSynchronize = async (client: CoreApiClient = createCoreApiClient()) => {
-  console.log('[synchronize] starting pipeline');
+export type SynchronizeOptions = {
+  refreshWinnerOdds?: boolean;
+  matchOddsScope?: 'upcoming' | 'all';
+};
+
+export const runSynchronize = async (
+  client: CoreApiClient = createCoreApiClient(),
+  options: SynchronizeOptions = {},
+) => {
+  const refreshWinnerOdds = options.refreshWinnerOdds ?? false;
+  const matchOddsScope = options.matchOddsScope ?? 'upcoming';
+  console.log('[synchronize] starting pipeline', { refreshWinnerOdds, matchOddsScope });
 
   console.log('[synchronize] fetching external data in parallel');
-  const { data: externalData, failed: failedExternal } = await fetchExternalDataSettled();
+  const { data: externalData, failed: failedExternal } = await fetchExternalDataSettled({
+    ignore: ['worldCupWinnerChances', 'matchResultChances'],
+  });
   if (failedExternal.length > 0) {
     console.error('[synchronize] external data fetch failed for', failedExternal);
   }
@@ -80,8 +92,8 @@ export const runSynchronize = async (client: CoreApiClient = createCoreApiClient
     },
     {
       key: 'updateVictoryChance',
-      deps: ['updateWcWinnerBets', 'worldCupWinnerChances'],
-      run: () => updateVictoryChance(client, externalData.worldCupWinnerChances),
+      deps: ['updateWcWinnerBets'],
+      run: () => updateVictoryChance(client, undefined, { refresh: refreshWinnerOdds }),
     },
     {
       key: 'updateWinnerBetPuntosEv',
@@ -100,8 +112,8 @@ export const runSynchronize = async (client: CoreApiClient = createCoreApiClient
     },
     {
       key: 'updateMatchQuotes',
-      deps: ['syncMatches', 'matchResultChances'],
-      run: () => updateMatchQuotes(client, externalData.matchResultChances),
+      deps: ['syncMatches'],
+      run: () => updateMatchQuotes(client, undefined, undefined, matchOddsScope),
     },
     {
       key: 'updateMatchBreakeven',
@@ -157,7 +169,10 @@ export const runSynchronize = async (client: CoreApiClient = createCoreApiClient
   return outcomes;
 };
 
-const handler = async () => runSynchronize();
+const handler = async (event?: RoutePayload) => {
+  const full = event?.queryStringParameters?.full === 'true';
+  return runSynchronize(createCoreApiClient(), full ? { refreshWinnerOdds: true, matchOddsScope: 'all' } : {});
+};
 
 export default defineLogicFunction({
   universalIdentifier: 'f21599f0-1fad-427a-a5fe-4e1fd2a1be1a',

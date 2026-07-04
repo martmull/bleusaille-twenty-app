@@ -61,7 +61,10 @@ const handler = async () => {
 
   if (hasJustTerminatedMatch) {
     console.log('[compute-live-ev] match just terminated, running full sync');
-    const result = await runSynchronize(client);
+    const result = await runSynchronize(client, {
+      refreshWinnerOdds: true,
+      matchOddsScope: 'all',
+    });
     return { skipped: false, terminated: true, ...result };
   }
 
@@ -94,7 +97,7 @@ const handler = async () => {
   );
 
   console.log('[compute-live-ev] score changed, computing EV');
-  const result = await computeEv(client);
+  const result = await computeEv(client, 'inProgress');
 
   return { skipped: false, scoreChanged: true, ...result };
 };

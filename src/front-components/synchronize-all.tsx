@@ -9,7 +9,7 @@ const SynchronizeAll = () => {
   const execute = async () => {
     try {
       const client = new RestApiClient();
-      await client.get('/s/synchronize-all');
+      await client.get('/s/synchronize-all?full=true');
       await enqueueSnackbar({
         message: 'Data synchronized',
         variant: 'success',
