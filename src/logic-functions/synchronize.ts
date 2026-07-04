@@ -1,8 +1,8 @@
-import { defineLogicFunction } from 'twenty-sdk/define';
+import { defineLogicFunction, RoutePayload } from 'twenty-sdk/define';
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
 import { createCoreApiClient } from 'src/logic-functions/shared/api';
-import { fetchExternalData } from 'src/logic-functions/shared/external-data';
+import { fetchExternalDataSettled } from 'src/logic-functions/shared/external-data';
 import { computePuntosEvolution } from 'src/logic-functions/shared/steps/compute-puntos-evolution.step';
 import { computeBetsPuntos } from 'src/logic-functions/shared/steps/compute-puntos.step';
 import { settleBets } from 'src/logic-functions/shared/steps/settle-bets.step';
@@ -17,88 +17,162 @@ import { updateMatchQuotes } from 'src/logic-functions/shared/steps/update-match
 import { updateMatchBreakeven } from 'src/logic-functions/shared/steps/update-match-breakeven.step';
 import { updateWinnings } from 'src/logic-functions/shared/steps/update-winnings.step';
 
-export const runSynchronize = async (client: CoreApiClient = createCoreApiClient()) => {
-  console.log('[synchronize] starting pipeline');
+type StepStatus = 'success' | 'failed' | 'skipped';
 
-  console.log('[synchronize] fetching external data in parallel');
-  const externalData = await fetchExternalData();
-  console.log('[synchronize] external data fetched');
-
-  console.log('[synchronize] step 1/13: syncing matches');
-  const syncMatchesResult = await syncMatches(client, externalData.worldCupMatches);
-  console.log('[synchronize] sync matches done', syncMatchesResult);
-
-  console.log('[synchronize] step 2/13: syncing bets');
-  const syncBetsResult = await syncBets(client, externalData.kicktippBets);
-  console.log('[synchronize] sync bets done', syncBetsResult);
-
-  console.log('[synchronize] step 3/13: settling bets');
-  const settleBetsResult = await settleBets(client);
-  console.log('[synchronize] settle bets done', settleBetsResult);
-
-  console.log('[synchronize] step 4/13: computing puntos');
-  const computePuntosResult = await computeBetsPuntos(client);
-  console.log('[synchronize] compute puntos done', computePuntosResult);
-
-  console.log('[synchronize] step 5/13: computing puntos evolution');
-  const computePuntosEvolutionResult = await computePuntosEvolution(client);
-  console.log('[synchronize] compute puntos evolution done', computePuntosEvolutionResult);
-
-  console.log('[synchronize] step 6/13: updating people puntos');
-  const updatePeoplePuntosResult = await updatePeoplePuntos(client);
-  console.log('[synchronize] update people puntos done', updatePeoplePuntosResult);
-
-  console.log('[synchronize] step 7/13: updating WC winner bets');
-  const updateWcWinnerBetsResult = await updateWcWinnerBets(client, externalData.kicktippWcWinners);
-  console.log('[synchronize] update WC winner bets done', updateWcWinnerBetsResult);
-
-  console.log('[synchronize] step 8/13: updating victory chance');
-  const updateVictoryChanceResult = await updateVictoryChance(
-    client,
-    externalData.worldCupWinnerChances,
-  );
-  console.log('[synchronize] update victory chance done', updateVictoryChanceResult);
-
-  console.log('[synchronize] step 9/13: updating winner bet puntos ev');
-  const updateWinnerBetPuntosEvResult = await updateWinnerBetPuntosEv(client);
-  console.log('[synchronize] update winner bet puntos ev done', updateWinnerBetPuntosEvResult);
-
-  console.log('[synchronize] step 10/13: updating puntos + wcw ev');
-  const updatePuntosWcwEvResult = await updatePuntosWcwEv(client);
-  console.log('[synchronize] update puntos + wcw ev done', updatePuntosWcwEvResult);
-
-  console.log('[synchronize] step 11/13: updating winnings');
-  const updateWinningsResult = await updateWinnings(client);
-  console.log('[synchronize] update winnings done', updateWinningsResult);
-
-  console.log('[synchronize] step 12/13: updating match quotes');
-  const updateMatchQuotesResult = await updateMatchQuotes(client, externalData.matchResultChances);
-  console.log('[synchronize] update match quotes done', updateMatchQuotesResult);
-
-  console.log('[synchronize] step 13/13: updating match breakeven');
-  const updateMatchBreakevenResult = await updateMatchBreakeven(client);
-  console.log('[synchronize] update match breakeven done', updateMatchBreakevenResult);
-
-  console.log('[synchronize] pipeline complete');
-
-  return {
-    syncMatches: syncMatchesResult,
-    syncBets: syncBetsResult,
-    settleBets: settleBetsResult,
-    computePuntos: computePuntosResult,
-    computePuntosEvolution: computePuntosEvolutionResult,
-    updatePeoplePuntos: updatePeoplePuntosResult,
-    updateWcWinnerBets: updateWcWinnerBetsResult,
-    updateVictoryChance: updateVictoryChanceResult,
-    updateWinnerBetPuntosEv: updateWinnerBetPuntosEvResult,
-    updatePuntosWcwEv: updatePuntosWcwEvResult,
-    updateWinnings: updateWinningsResult,
-    updateMatchQuotes: updateMatchQuotesResult,
-    updateMatchBreakeven: updateMatchBreakevenResult,
-  };
+type StepOutcome = {
+  status: StepStatus;
+  result?: unknown;
+  error?: string;
+  blockedBy?: string[];
 };
 
-const handler = async () => runSynchronize();
+type PipelineStep = {
+  key: string;
+  deps: string[];
+  run: () => Promise<unknown>;
+};
+
+export type SynchronizeOptions = {
+  refreshWinnerOdds?: boolean;
+  matchOddsScope?: 'upcoming' | 'all';
+};
+
+export const runSynchronize = async (
+  client: CoreApiClient = createCoreApiClient(),
+  options: SynchronizeOptions = {},
+) => {
+  const refreshWinnerOdds = options.refreshWinnerOdds ?? false;
+  const matchOddsScope = options.matchOddsScope ?? 'upcoming';
+  console.log('[synchronize] starting pipeline', { refreshWinnerOdds, matchOddsScope });
+
+  console.log('[synchronize] fetching external data in parallel');
+  const { data: externalData, failed: failedExternal } = await fetchExternalDataSettled({
+    ignore: ['worldCupWinnerChances', 'matchResultChances'],
+  });
+  if (failedExternal.length > 0) {
+    console.error('[synchronize] external data fetch failed for', failedExternal);
+  }
+  console.log('[synchronize] external data fetched');
+
+  const steps: PipelineStep[] = [
+    {
+      key: 'syncMatches',
+      deps: ['worldCupMatches'],
+      run: () => syncMatches(client, externalData.worldCupMatches),
+    },
+    {
+      key: 'syncBets',
+      deps: ['kicktippBets'],
+      run: () => syncBets(client, externalData.kicktippBets),
+    },
+    {
+      key: 'settleBets',
+      deps: ['syncMatches', 'syncBets'],
+      run: () => settleBets(client),
+    },
+    {
+      key: 'computePuntos',
+      deps: ['settleBets'],
+      run: () => computeBetsPuntos(client),
+    },
+    {
+      key: 'computePuntosEvolution',
+      deps: ['computePuntos'],
+      run: () => computePuntosEvolution(client),
+    },
+    {
+      key: 'updatePeoplePuntos',
+      deps: ['computePuntosEvolution', 'computePuntos'],
+      run: () => updatePeoplePuntos(client),
+    },
+    {
+      key: 'updateWcWinnerBets',
+      deps: ['kicktippWcWinners'],
+      run: () => updateWcWinnerBets(client, externalData.kicktippWcWinners),
+    },
+    {
+      key: 'updateVictoryChance',
+      deps: ['updateWcWinnerBets'],
+      run: () => updateVictoryChance(client, undefined, { refresh: refreshWinnerOdds }),
+    },
+    {
+      key: 'updateWinnerBetPuntosEv',
+      deps: ['updateVictoryChance'],
+      run: () => updateWinnerBetPuntosEv(client),
+    },
+    {
+      key: 'updatePuntosWcwEv',
+      deps: ['updatePeoplePuntos', 'updateWinnerBetPuntosEv'],
+      run: () => updatePuntosWcwEv(client),
+    },
+    {
+      key: 'updateWinnings',
+      deps: ['updatePeoplePuntos'],
+      run: () => updateWinnings(client),
+    },
+    {
+      key: 'updateMatchQuotes',
+      deps: ['syncMatches'],
+      run: () => updateMatchQuotes(client, undefined, undefined, matchOddsScope),
+    },
+    {
+      key: 'updateMatchBreakeven',
+      deps: ['updateMatchQuotes'],
+      run: () => updateMatchBreakeven(client),
+    },
+  ];
+
+  const outcomes: Record<string, StepOutcome> = {};
+  const failed = new Set<string>(failedExternal);
+
+  for (const [index, step] of steps.entries()) {
+    const blockedBy = step.deps.filter((dep) => failed.has(dep));
+
+    if (blockedBy.length > 0) {
+      failed.add(step.key);
+      outcomes[step.key] = { status: 'skipped', blockedBy };
+      console.warn(
+        `[synchronize] step ${index + 1}/${steps.length}: skipping ${step.key}, blocked by`,
+        blockedBy,
+      );
+      continue;
+    }
+
+    console.log(`[synchronize] step ${index + 1}/${steps.length}: running ${step.key}`);
+    try {
+      const result = await step.run();
+      outcomes[step.key] = { status: 'success', result };
+      console.log(`[synchronize] ${step.key} done`, result);
+    } catch (error) {
+      failed.add(step.key);
+      outcomes[step.key] = {
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      };
+      console.error(`[synchronize] ${step.key} failed`, error);
+    }
+  }
+
+  const failedSteps = steps
+    .map((step) => step.key)
+    .filter((key) => outcomes[key]?.status === 'failed');
+  const skippedSteps = steps
+    .map((step) => step.key)
+    .filter((key) => outcomes[key]?.status === 'skipped');
+
+  console.log('[synchronize] pipeline complete', {
+    failedExternal,
+    failedSteps,
+    skippedSteps,
+  });
+
+  return outcomes;
+};
+
+const handler = async (event?: RoutePayload) => {
+  const full = event?.queryStringParameters?.full === 'true';
+  return runSynchronize(createCoreApiClient(), full ? { refreshWinnerOdds: true, matchOddsScope: 'all' } : {});
+};
 
 export default defineLogicFunction({
   universalIdentifier: 'f21599f0-1fad-427a-a5fe-4e1fd2a1be1a',
