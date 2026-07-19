@@ -1,10 +1,23 @@
 import { CoreApiClient } from 'twenty-client-sdk/core';
 
 import { applyGroupedUpdates, fetchAllRecords, round2 } from 'src/logic-functions/shared/api';
+import { computeWinnerBetPayouts } from 'src/logic-functions/shared/winner-bet-puntos-ev';
+import { MatchResult, MatchType } from 'src/objects/match.object';
 
 type EvolutionRecord = { points: number | null; person: { id: string } | null };
 type BetRecord = { puntevs: number | null; person: { id: string } | null };
-type PersonRecord = { id: string; puntos: number | null; puntevs: number | null };
+type PersonRecord = {
+  id: string;
+  puntos: number | null;
+  puntevs: number | null;
+  wcWinnerBet: string | null;
+};
+type MatchRecord = {
+  home: string | null;
+  away: string | null;
+  stage: string | null;
+  result: string | null;
+};
 
 export type UpdatePeoplePuntosResult = {
   people: number;
@@ -31,7 +44,7 @@ const sumByPersonId = <T extends { person: { id: string } | null }>(
 export const updatePeoplePuntos = async (
   client: CoreApiClient,
 ): Promise<UpdatePeoplePuntosResult> => {
-  const [evolutions, bets, people] = await Promise.all([
+  const [evolutions, bets, people, matches] = await Promise.all([
     fetchAllRecords<EvolutionRecord>(client, 'puntosEvolutions', {
       points: true,
       person: { id: true },
@@ -44,12 +57,30 @@ export const updatePeoplePuntos = async (
       id: true,
       puntos: true,
       puntevs: true,
+      wcWinnerBet: true,
+    }),
+    fetchAllRecords<MatchRecord>(client, 'matches', {
+      home: true,
+      away: true,
+      stage: true,
+      result: true,
     }),
   ]);
 
   const puntosByPersonId = sumByPersonId(evolutions, (evolution) => evolution.points);
   // puntevs lives on the bet (only set for resolved matches); sum it per person.
   const puntevsByPersonId = sumByPersonId(bets, (bet) => bet.puntevs);
+
+  const finalMatch = matches.find((match) => match.stage === MatchType.FINAL);
+  const worldCupWinner =
+    finalMatch?.result === MatchResult.HOME_WIN
+      ? finalMatch.home
+      : finalMatch?.result === MatchResult.AWAY_WIN
+        ? finalMatch.away
+        : null;
+  for (const { personId, amount } of computeWinnerBetPayouts(people, worldCupWinner)) {
+    puntosByPersonId.set(personId, (puntosByPersonId.get(personId) ?? 0) + amount);
+  }
 
   // People absent from a totals map keep their current value, so leave that
   // field untouched (undefined) rather than writing one.

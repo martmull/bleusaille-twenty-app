@@ -4,8 +4,11 @@ import { PUNTOS_SHARED_PER_MATCH } from 'src/constants/tournament';
 import { createCoreApiClient, fetchAllRecords } from 'src/logic-functions/shared/api';
 import { getStageMultiplier } from 'src/logic-functions/shared/compute-puntos';
 import { cloneTotals, computeRanks, RankTotals } from 'src/logic-functions/shared/leaderboard';
-import { canonicalTeamName, teamPairKey } from 'src/logic-functions/shared/team-aliases';
-import { computeWinnerBetPot } from 'src/logic-functions/shared/winner-bet-puntos-ev';
+import { teamPairKey } from 'src/logic-functions/shared/team-aliases';
+import {
+  computeWinnerBetPayouts,
+  WinnerBetPayout,
+} from 'src/logic-functions/shared/winner-bet-puntos-ev';
 import { BetValue } from 'src/objects/bet.object';
 import { MatchType } from 'src/objects/match.object';
 
@@ -36,8 +39,6 @@ type PersonRecord = {
   name: { firstName: string | null } | null;
   wcWinnerBet: string | null;
 };
-
-type WinnerBetPayout = { personId: string; amount: number };
 
 type OutcomeUser = {
   name: string;
@@ -82,25 +83,6 @@ const outcomeFromScore = (homeScore: number, awayScore: number): BetValue =>
     : homeScore < awayScore
       ? BetValue.AWAY_WIN
       : BetValue.NULL_OR_DRAW;
-
-const computeWinnerBetPayouts = (
-  people: PersonRecord[],
-  winningTeam: string | null,
-): WinnerBetPayout[] => {
-  if (!winningTeam) {
-    return [];
-  }
-  const teamKey = canonicalTeamName(winningTeam);
-  const pickers = people.filter(
-    (person) => person.wcWinnerBet && canonicalTeamName(person.wcWinnerBet) === teamKey,
-  );
-  const pot = computeWinnerBetPot({ predictorsForTeam: pickers.length });
-  if (pot === null) {
-    return [];
-  }
-  const amount = Math.round(pot);
-  return pickers.map((person) => ({ personId: person.id, amount }));
-};
 
 const buildLeaderboard = (
   winningOutcome: BetValue,
