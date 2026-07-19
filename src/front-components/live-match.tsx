@@ -16,6 +16,7 @@ type OutcomeUser = {
   newPuntos: number;
   newRank: number;
   rankDelta: number;
+  wcw?: boolean;
 };
 
 type OutcomeBets = {
@@ -363,6 +364,11 @@ const UserRow = ({ user, index }: { user: OutcomeUser; index: number }) => {
         }}
       >
         {user.name}
+        {user.wcw ? (
+          <span title="Pari vainqueur Coupe du Monde" style={{ marginLeft: '4px' }}>
+            🏆
+          </span>
+        ) : null}
       </td>
       <td
         style={{

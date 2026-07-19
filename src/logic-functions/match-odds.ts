@@ -44,6 +44,7 @@ type OutcomeUser = {
   newPuntos: number;
   newRank: number;
   rankDelta: number;
+  wcw: boolean;
 };
 
 type OutcomeBets = {
@@ -270,13 +271,17 @@ const fetchOutcomes = async (
     }
     const scenarioRanks = computeRanks(scenarioTotals);
 
+    const wcwUserIds = new Set(
+      winnerBetPayoutsByOutcome[betValue].map(({ personId }) => personId),
+    );
+
     const scenarioUserIds = new Set<string>();
     for (const bet of outcomeBets) {
       if (bet.person?.id) {
         scenarioUserIds.add(bet.person.id);
       }
     }
-    for (const { personId } of winnerBetPayoutsByOutcome[betValue]) {
+    for (const personId of wcwUserIds) {
       scenarioUserIds.add(personId);
     }
 
@@ -293,6 +298,7 @@ const fetchOutcomes = async (
           newPuntos: entry.total,
           newRank,
           rankDelta: currentRank - newRank,
+          wcw: wcwUserIds.has(id),
         };
       })
       .filter((user): user is OutcomeUser => user !== null)
