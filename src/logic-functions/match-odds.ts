@@ -49,6 +49,7 @@ type OutcomeUser = {
 
 type OutcomeBets = {
   payout: number;
+  wcwBonus: number | null;
   expectedPuntos: number | null;
   probability: number | null;
   quote: number | null;
@@ -306,6 +307,7 @@ const fetchOutcomes = async (
 
     return {
       payout,
+      wcwBonus: winnerBetPayoutsByOutcome[betValue][0]?.amount ?? null,
       expectedPuntos,
       probability,
       quote: quoteByOutcome[betValue],

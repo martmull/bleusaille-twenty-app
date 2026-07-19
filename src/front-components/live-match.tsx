@@ -21,6 +21,7 @@ type OutcomeUser = {
 
 type OutcomeBets = {
   payout: number;
+  wcwBonus?: number | null;
   expectedPuntos: number | null;
   probability: number | null;
   quote: number | null;
@@ -467,6 +468,25 @@ const OutcomeColumn = ({
         </span>
       ) : null}
     </div>
+    {outcome.wcwBonus != null ? (
+      <span
+        title="Pari vainqueur Coupe du Monde"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '3px',
+          padding: '1px 7px',
+          borderRadius: '999px',
+          background: theme.goldChipBackground,
+          border: `1px solid ${theme.goldChipBorder}`,
+          fontSize: '13px',
+          fontWeight: 800,
+          color: theme.goldChipText,
+        }}
+      >
+        🏆 +{outcome.wcwBonus}
+      </span>
+    ) : null}
     {outcome.users.length === 0 ? (
       <span style={{ fontSize: '13px', color: theme.faint }}>—</span>
     ) : (
