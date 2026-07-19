@@ -4,8 +4,10 @@ import { PUNTOS_SHARED_PER_MATCH } from 'src/constants/tournament';
 import { createCoreApiClient, fetchAllRecords } from 'src/logic-functions/shared/api';
 import { getStageMultiplier } from 'src/logic-functions/shared/compute-puntos';
 import { cloneTotals, computeRanks, RankTotals } from 'src/logic-functions/shared/leaderboard';
-import { teamPairKey } from 'src/logic-functions/shared/team-aliases';
+import { canonicalTeamName, teamPairKey } from 'src/logic-functions/shared/team-aliases';
+import { computeWinnerBetPot } from 'src/logic-functions/shared/winner-bet-puntos-ev';
 import { BetValue } from 'src/objects/bet.object';
+import { MatchType } from 'src/objects/match.object';
 
 type BetRecord = {
   betValue: string;
@@ -32,7 +34,10 @@ type PersonRecord = {
   id: string;
   puntos: number | null;
   name: { firstName: string | null } | null;
+  wcWinnerBet: string | null;
 };
+
+type WinnerBetPayout = { personId: string; amount: number };
 
 type OutcomeUser = {
   name: string;
@@ -76,12 +81,32 @@ const outcomeFromScore = (homeScore: number, awayScore: number): BetValue =>
       ? BetValue.AWAY_WIN
       : BetValue.NULL_OR_DRAW;
 
+const computeWinnerBetPayouts = (
+  people: PersonRecord[],
+  winningTeam: string | null,
+): WinnerBetPayout[] => {
+  if (!winningTeam) {
+    return [];
+  }
+  const teamKey = canonicalTeamName(winningTeam);
+  const pickers = people.filter(
+    (person) => person.wcWinnerBet && canonicalTeamName(person.wcWinnerBet) === teamKey,
+  );
+  const pot = computeWinnerBetPot({ predictorsForTeam: pickers.length });
+  if (pot === null) {
+    return [];
+  }
+  const amount = Math.round(pot);
+  return pickers.map((person) => ({ personId: person.id, amount }));
+};
+
 const buildLeaderboard = (
   winningOutcome: BetValue,
   baseTotals: RankTotals,
   currentRanks: Map<string, number>,
   matchBets: BetRecord[],
   pot: number,
+  winnerBetPayouts: WinnerBetPayout[],
 ): LeaderboardEntry[] => {
   const winnerBets = matchBets.filter((bet) => bet.betValue === winningOutcome);
   const payout = winnerBets.length > 0 ? Math.round(pot / winnerBets.length) : 0;
@@ -92,6 +117,12 @@ const buildLeaderboard = (
     const entry = id ? scenarioTotals.get(id) : undefined;
     if (entry) {
       entry.total += payout;
+    }
+  }
+  for (const { personId, amount } of winnerBetPayouts) {
+    const entry = scenarioTotals.get(personId);
+    if (entry) {
+      entry.total += amount;
     }
   }
   const scenarioRanks = computeRanks(scenarioTotals);
@@ -144,6 +175,7 @@ const fetchOutcomes = async (
       id: true,
       puntos: true,
       name: { firstName: true },
+      wcWinnerBet: true,
     }),
   ]);
 
@@ -167,6 +199,17 @@ const fetchOutcomes = async (
 
   const stage = matchRecord?.stage ?? null;
   const pot = PUNTOS_SHARED_PER_MATCH * getStageMultiplier(stage);
+
+  const isFinal = stage === MatchType.FINAL;
+  const winnerBetPayoutsByOutcome: Record<BetValue, WinnerBetPayout[]> = {
+    [BetValue.HOME_WIN]: isFinal
+      ? computeWinnerBetPayouts(people, matchRecord?.home ?? home)
+      : [],
+    [BetValue.NULL_OR_DRAW]: [],
+    [BetValue.AWAY_WIN]: isFinal
+      ? computeWinnerBetPayouts(people, matchRecord?.away ?? away)
+      : [],
+  };
 
   const inverseQuote = (quote: number | null | undefined): number =>
     quote && quote > 0 ? 1 / quote : 0;
@@ -219,19 +262,38 @@ const fetchOutcomes = async (
         entry.total += payout;
       }
     }
+    for (const { personId, amount } of winnerBetPayoutsByOutcome[betValue]) {
+      const entry = scenarioTotals.get(personId);
+      if (entry) {
+        entry.total += amount;
+      }
+    }
     const scenarioRanks = computeRanks(scenarioTotals);
 
-    const users = outcomeBets
-      .map((bet): OutcomeUser | null => {
-        const id = bet.person?.id;
-        const name = bet.person?.name?.firstName;
-        if (!id || !name) {
+    const scenarioUserIds = new Set<string>();
+    for (const bet of outcomeBets) {
+      if (bet.person?.id) {
+        scenarioUserIds.add(bet.person.id);
+      }
+    }
+    for (const { personId } of winnerBetPayoutsByOutcome[betValue]) {
+      scenarioUserIds.add(personId);
+    }
+
+    const users = [...scenarioUserIds]
+      .map((id): OutcomeUser | null => {
+        const entry = scenarioTotals.get(id);
+        if (!entry) {
           return null;
         }
         const currentRank = currentRanks.get(id) ?? 0;
         const newRank = scenarioRanks.get(id) ?? currentRank;
-        const newPuntos = (baseTotals.get(id)?.total ?? 0) + payout;
-        return { name, newPuntos, newRank, rankDelta: currentRank - newRank };
+        return {
+          name: entry.firstName,
+          newPuntos: entry.total,
+          newRank,
+          rankDelta: currentRank - newRank,
+        };
       })
       .filter((user): user is OutcomeUser => user !== null)
       .sort((a, b) => b.newPuntos - a.newPuntos || a.name.localeCompare(b.name));
@@ -260,6 +322,7 @@ const fetchOutcomes = async (
           currentRanks,
           matchBets,
           pot,
+          winnerBetPayoutsByOutcome[outcomeFromScore(homeScore, awayScore)],
         )
       : undefined;
 

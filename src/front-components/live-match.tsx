@@ -443,7 +443,7 @@ const OutcomeColumn = ({
           </span>
         </span>
       ) : null}
-      {outcome.users.length > 0 ? (
+      {outcome.users.length > 0 && outcome.payout > 0 ? (
         <span
           style={{
             display: 'inline-flex',
